@@ -1,0 +1,11 @@
+# 项目排除路径
+
+*
+!header
+!include
+!lib
+!main
+!src
+!.gitignore
+!CMakeLists.txt
+!README.md
