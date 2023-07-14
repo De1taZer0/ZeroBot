@@ -1,6 +1,7 @@
 #include <iostream>
 #include <hv/requests.h>
 #include <hv/WebSocketClient.h>
+#include <hv/json.hpp>
 #include "Setting.hh"
 
 std::pair<int, std::string> getWSUrl(const std::string& gateWayUrl,const int& compress, const std::string& auth);

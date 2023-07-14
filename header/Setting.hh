@@ -10,7 +10,7 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
-#include <nlohmann/json.hpp>
+#include <hv/json.hpp>
 
 namespace ZeroBot::Setting
 {
