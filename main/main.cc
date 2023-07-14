@@ -2,13 +2,17 @@
 #include <hv/requests.h>
 #include <hv/WebSocketClient.h>
 #include <hv/json.hpp>
-#include "Setting.hh"
+#include "BotInstance.hh"
+
+#define MAXSN
 
 std::pair<int, std::string> getWSUrl(const std::string& gateWayUrl,const int& compress, const std::string& auth);
 
 int main()
 {
     using nlohmann::json;
+
+    logger_set_level(hlog, LOG_LEVEL_DEBUG);
 
     SetConsoleOutputCP(65001);
 
@@ -21,18 +25,38 @@ int main()
 
     if(res.first == 0)
     {
+        int s, snMax = 0, sn;
         hv::WebSocketClient ws;
-        ws.onopen = [&ws]()
+        ws.onopen = []()
         {
             std::cout << "onOpen" << std::endl;
         };
-        ws.onclose = [&ws]()
+        ws.onclose = []()
         {
             std::cout << "onClose" << std::endl;
         };
-        ws.onmessage = [](const std::string& msg)
+        ws.onmessage = [&s,&sn](const std::string& msg)
         {
             std::cout << "onMessage:" + msg << std::endl;
+            json msgJson(msg);
+            s = msgJson["s"];
+            int code = msgJson["d"]["code"];
+
+            switch(s)
+            {
+                case 0:
+                    sn = msgJson["sn"];
+
+                    break;
+                case 1:
+                    break;
+                case 3:
+                    break;
+                case 5:
+                    break;
+                case 6:
+                    break;
+            }
         };
 
         hv::ReconnectInfo reconn;
@@ -44,12 +68,7 @@ int main()
 
         ws.open(res.second.c_str(), headers);
 
-        std::cout << ws.isConnected() << std::endl;
-
-        while(ws.isConnected())
-        {
-
-        }
+        while(ws.loop()->isRunning());
     }
 
     return 0;

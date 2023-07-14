@@ -2,7 +2,7 @@
 #define ZEROBOT_SETTING_HH
 
 ///
-/// @file ZeroBot.hh
+/// @file Setting.hh
 /// @date 2023.7.14
 ///
 

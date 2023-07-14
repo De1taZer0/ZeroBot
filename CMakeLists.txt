@@ -20,6 +20,6 @@ link_directories(lib)
 
 file(GLOB SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/*.cc")
 
-add_executable(${PROJECT_NAME} main/main.cc "${PROJECT_SOURCE_DIR}/src/Setting.cc")
+add_executable(${PROJECT_NAME} main/main.cc ${SOURCE_FILES})
 
 target_link_libraries(${PROJECT_NAME} hv_static libssl-1_1 libcrypto-1_1)

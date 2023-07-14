@@ -20,7 +20,7 @@ namespace ZeroBot::Setting
             }
             else
             {
-                auto newSett = new json( { { "Authorization", "" }, { "Gateway", "" } } );
+                auto newSett = new json( { { "Authorization", "" }, { "Gateway", "" }, { "Compress", 0 } } );
                 settingFile << newSett->dump(4);
                 delete newSett;
             }
@@ -30,9 +30,9 @@ namespace ZeroBot::Setting
         settingFile.open(settingPath, std::ios::in);
 
         settingFile >> settings;
-        if(settings["Authorization"].is_string() && settings["Gateway"].is_string())
+        if(settings["Authorization"].is_string() && settings["Gateway"].is_string() && settings["Compress"].is_number_unsigned())
         {
-            if(settings["Authorization"].empty() || settings["Gateway"].empty()) // 未指定参数
+            if(settings["Authorization"].empty() || settings["Gateway"].empty() || settings["Compress"].empty()) // 未指定参数
             {
                 // error
             }
