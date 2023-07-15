@@ -2,23 +2,23 @@
 
 namespace ZeroBot::Event
 {
-    std::unique_ptr<EventBase> EventBase::construct(std::unique_ptr<nlohmann::json> rawMsg)
+    auto EventBase::construct(std::unique_ptr<nlohmann::json> rawMsg) -> std::unique_ptr<EventBase>
     {
 
         switch(cTypeMap.at(rawMsg->at("channel_type").get<std::string>()))
         {
             case Channel_Type::BROADCAST:
-                return std::unique_ptr<EventBase>(new GroupMsg(std::move(rawMsg)));
+                return std::make_unique<GroupMsg>(std::move(rawMsg));
             case Channel_Type::PERSON:
-                return std::unique_ptr<EventBase>(new GroupMsg(std::move(rawMsg)));
+                return std::make_unique<GroupMsg>(std::move(rawMsg));
             case Channel_Type::GROUP:
-                return std::unique_ptr<EventBase>(new GroupMsg(std::move(rawMsg)));
+                return std::make_unique<GroupMsg>(std::move(rawMsg));
         }
     }
 
-    GroupMsg::GroupMsg(std::unique_ptr<nlohmann::json> rMsg)
+    GroupMsg::GroupMsg(std::unique_ptr<nlohmann::json> rawMsg)
     {
-        rawMsg = std::move(rMsg);
+        rawMessage = std::move(rawMsg);
 
         msgType = Msg_Type(rawMsg->at("type").get<int>());
 

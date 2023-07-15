@@ -83,8 +83,8 @@ namespace ZeroBot::Object
     ///
     struct RolePermission : Role
     {
-        int allow;
-        int deny;
+        int allow{};
+        int deny{};
     };
 
     ///
@@ -92,8 +92,8 @@ namespace ZeroBot::Object
     ///
     struct UserPermission : User
     {
-        int allow;
-        int deny;
+        int allow{};
+        int deny{};
     };
 
     ///

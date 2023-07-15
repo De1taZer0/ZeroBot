@@ -14,7 +14,7 @@ int main()
 
     ZeroBot::Bot::BotInstance bot;
 
-
+    bot.run();
 
     return 0;
 }

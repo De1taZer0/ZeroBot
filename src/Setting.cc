@@ -2,7 +2,7 @@
 
 namespace ZeroBot::Setting
 {
-    std::tuple<string, string, int> initSetting()
+    auto initSetting() -> std::tuple<string, string, int>
     {
         path settingPath("./settings/settings.json");
 

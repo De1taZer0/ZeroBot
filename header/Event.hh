@@ -19,6 +19,11 @@ namespace ZeroBot::Event
     template<typename T>
     using array = std::vector<T>;
 
+    template<typename T>
+    using unique_ptr = std::unique_ptr<T>;
+
+    using json = nlohmann::json;
+
     using Msg_Type = Message::Msg_Type;
 
     enum class Channel_Type:int
@@ -49,7 +54,7 @@ namespace ZeroBot::Event
     class EventBase
     {
     protected:
-        std::unique_ptr<nlohmann::json> rawMsg;
+        unique_ptr<json> rawMessage;
 
     public:
         EventBase() = default;
@@ -58,7 +63,7 @@ namespace ZeroBot::Event
 
         [[nodiscard]] virtual Event_Type getType() const = 0;
 
-        [[nodiscard]] static std::unique_ptr<EventBase> construct(std::unique_ptr<nlohmann::json> rawMsg);
+        [[nodiscard]] static auto construct(unique_ptr<json> rawMsg) -> std::unique_ptr<EventBase>;
 
     };
 
@@ -70,7 +75,7 @@ namespace ZeroBot::Event
     public:
         GroupMsg() = delete;
 
-        explicit GroupMsg(std::unique_ptr<nlohmann::json> rMsg);
+        explicit GroupMsg(unique_ptr<json> rawMsg);
 
         ~GroupMsg() final;
 
