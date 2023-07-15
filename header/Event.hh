@@ -9,9 +9,18 @@
 #include <unordered_map>
 #include <string>
 #include <hv/json.hpp>
+#include "Object.hh"
+#include "Message.hh"
 
 namespace ZeroBot::Event
 {
+    using string = std::string;
+
+    template<typename T>
+    using array = std::vector<T>;
+
+    using Msg_Type = Message::Msg_Type;
+
     enum class Channel_Type:int
     {
         GROUP = 1,
@@ -19,16 +28,11 @@ namespace ZeroBot::Event
         BROADCAST = 3
     };
 
-    enum class Msg_Type:int
+    const std::unordered_map<string, Channel_Type> cTypeMap =
     {
-        TEXT = 1,
-        IMAGE = 2,
-        VIDEO = 3,
-        FILE = 4,
-        SOUND = 8,
-        KMARKDOWN = 9,
-        CARD = 10,
-        SYSTEM = 255
+        { "GROUP", Channel_Type::GROUP },
+        { "PERSON", Channel_Type::PERSON },
+        { "BROADCAST", Channel_Type::BROADCAST }
     };
 
     struct Event_Type
@@ -45,17 +49,35 @@ namespace ZeroBot::Event
     class EventBase
     {
     protected:
-        nlohmann::json rawMsg;
+        std::unique_ptr<nlohmann::json> rawMsg;
+
+    public:
+        EventBase() = default;
 
         virtual ~EventBase() = default;
 
         [[nodiscard]] virtual Event_Type getType() const = 0;
 
-        [[nodiscard]] static std::unique_ptr<EventBase> construct(const Event_Type& eventType);
-
-        virtual void parse() = 0;
+        [[nodiscard]] static std::unique_ptr<EventBase> construct(std::unique_ptr<nlohmann::json> rawMsg);
 
     };
+
+    class GroupMsg final : public EventBase
+    {
+    protected:
+        Msg_Type msgType;
+
+    public:
+        GroupMsg() = delete;
+
+        explicit GroupMsg(std::unique_ptr<nlohmann::json> rMsg);
+
+        ~GroupMsg() final;
+
+        [[nodiscard]] Event_Type getType() const final;
+
+    };
+
 }
 
 #endif //ZEROBOT_EVENT_HH

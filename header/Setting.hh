@@ -6,21 +6,24 @@
 /// @date 2023.7.14
 ///
 
+#include <tuple>
+#include <string>
 #include <cassert>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <filesystem>
 #include <hv/json.hpp>
 
 namespace ZeroBot::Setting
 {
-    using std::filesystem::path;
     using std::filesystem::create_directories;
-    using nlohmann::json;
+    using path = std::filesystem::path;
+    using json = nlohmann::json;
+    using string = std::string;
 
     ///
     /// \param settings
-    void initSetting(json& settings);
+    std::tuple<string, string, int> initSetting();
 }
 
 #endif //ZEROBOT_SETTING_HH

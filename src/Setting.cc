@@ -2,7 +2,7 @@
 
 namespace ZeroBot::Setting
 {
-    void initSetting(json& settings)
+    std::tuple<string, string, int> initSetting()
     {
         path settingPath("./settings/settings.json");
 
@@ -29,6 +29,7 @@ namespace ZeroBot::Setting
 
         settingFile.open(settingPath, std::ios::in);
 
+        json settings;
         settingFile >> settings;
         if(settings["Authorization"].is_string() && settings["Gateway"].is_string() && settings["Compress"].is_number_unsigned())
         {
@@ -38,7 +39,9 @@ namespace ZeroBot::Setting
             }
             else
             {
-                return;
+                return std::make_tuple( settings.at("Authorization").get<string>(),
+                                        settings.at("Gateway").get<string>(),
+                                        settings.at("Compress").get<int>() );
             }
         }
         else // 参数错误
