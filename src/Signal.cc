@@ -2,53 +2,75 @@
 
 namespace ZeroBot::Signal
 {
-    auto SignalBase::construct(unique_ptr<ZeroBot::Signal::json> rawMsg) -> unique_ptr<SignalBase>
+    auto SignalBase::construct(json&& rawMsg) -> unique_ptr<SignalBase>
     {
-        switch(Sign(rawMsg->at("s").get<int>()))
+        try
         {
-            case Sign::EVENT:
-                return std::make_unique<EventSignal>(std::move(rawMsg));
-            case Sign::HELLO:
-                return std::make_unique<HelloSignal>(std::move(rawMsg));
-            case Sign::PING:
-                return std::make_unique<PingSignal>(std::move(rawMsg));
-            case Sign::PONG:
-                return std::make_unique<PongSignal>(std::move(rawMsg));
-            case Sign::RESUME:
-                return std::make_unique<ResumeSignal>(std::move(rawMsg));
-            case Sign::RECONNECT:
-                return std::make_unique<ReconnectSignal>(std::move(rawMsg));
-            case Sign::RESUME_ACK:
-                return std::make_unique<ResumeAckSignal>(std::move(rawMsg));
+            switch(static_cast<Sign>(rawMsg.at("s").get<int>()))
+            {
+                case Sign::EVENT:
+                    return std::make_unique<EventSignal>(std::move(rawMsg));
+                case Sign::HELLO:
+                    return std::make_unique<HelloSignal>(std::move(rawMsg));
+                case Sign::PING:
+                    return std::make_unique<PingSignal>(std::move(rawMsg));
+                case Sign::PONG:
+                    return std::make_unique<PongSignal>(std::move(rawMsg));
+                case Sign::RESUME:
+                    return std::make_unique<ResumeSignal>(std::move(rawMsg));
+                case Sign::RECONNECT:
+                    return std::make_unique<ReconnectSignal>(std::move(rawMsg));
+                case Sign::RESUME_ACK:
+                    return std::make_unique<ResumeAckSignal>(std::move(rawMsg));
+            }
+        }
+        catch(const std::exception& e)
+        {
+            std::cout << "\t\tIn SignalBase::construct" << std::endl;
         }
     }
 
-
-    EventSignal::EventSignal(unique_ptr<json> rawMsg)
+    auto SignalBase::getRawMsg() const noexcept -> json
     {
-        rawMessage = std::move(rawMsg);
+        return rawMessage->get<json>();
     }
 
-    auto EventSignal::getType() -> Sign
+
+    EventSignal::EventSignal(json&& rawMsg)
+    {
+        rawMessage = std::make_unique<json>(rawMsg);
+    }
+
+    auto EventSignal::getType() const noexcept -> Sign
     {
         return Sign::PING;
     }
 
 
-    HelloSignal::HelloSignal(unique_ptr<json> rawMsg)
+    HelloSignal::HelloSignal(json&& rawMsg)
     {
-        rawMessage = std::move(rawMsg);
+        try
+        {
+            rawMessage = std::make_unique<json>(rawMsg);
+        }
+        catch(const std::exception& e)
+        {
+            std::cout << "Error occurred when processing message: " << rawMsg << std::endl;
+            std::cout << "\t"  << e.what() << std::endl;
+            std::cout << "\t\tIn HelloSignal::HelloSignal" << std::endl;
+            throw e;
+        }
     }
 
-    auto HelloSignal::getType() -> Sign
+    auto HelloSignal::getType() const noexcept -> Sign
     {
         return Sign::HELLO;
     }
 
 
-    PingSignal::PingSignal(unique_ptr<json> rawMsg)
+    PingSignal::PingSignal(json&& rawMsg)
     {
-        rawMessage = std::move(rawMsg);
+        rawMessage = std::make_unique<json>(rawMsg);
     }
 
     auto PingSignal::rawString(const int& sn) -> string
@@ -57,37 +79,37 @@ namespace ZeroBot::Signal
                      { "sn", sn } }.dump();
     }
 
-    auto PingSignal::getType() -> Sign
+    auto PingSignal::getType() const noexcept -> Sign
     {
         return Sign::PING;
     }
 
 
-    PongSignal::PongSignal(unique_ptr<json> rawMsg)
+    PongSignal::PongSignal(json&& rawMsg)
     {
-        rawMessage = std::move(rawMsg);
+        rawMessage = std::make_unique<json>(rawMsg);
     }
 
-    auto PongSignal::getType() -> Sign
+    auto PongSignal::getType() const noexcept -> Sign
     {
         return Sign::PONG;
     }
 
 
-    ResumeSignal::ResumeSignal(unique_ptr<json> rawMsg)
+    ResumeSignal::ResumeSignal(json&& rawMsg)
     {
-        rawMessage = std::move(rawMsg);
+        rawMessage = std::make_unique<json>(rawMsg);
     }
 
-    auto ResumeSignal::getType() -> Sign
+    auto ResumeSignal::getType() const noexcept -> Sign
     {
         return Sign::RESUME;
     }
 
 
-    ReconnectSignal::ReconnectSignal(unique_ptr<json> rawMsg)
+    ReconnectSignal::ReconnectSignal(json&& rawMsg)
     {
-        rawMessage = std::move(rawMsg);
+        rawMessage = std::make_unique<json>(rawMsg);
     }
 
     auto ReconnectSignal::rawString(const int &sn) -> string
@@ -96,18 +118,18 @@ namespace ZeroBot::Signal
                      { "sn", sn } }.dump();
     }
 
-    auto ReconnectSignal::getType() -> Sign
+    auto ReconnectSignal::getType() const noexcept -> Sign
     {
         return Sign::RECONNECT;
     }
 
 
-    ResumeAckSignal::ResumeAckSignal(unique_ptr<json> rawMsg)
+    ResumeAckSignal::ResumeAckSignal(json&& rawMsg)
     {
-        rawMessage = std::move(rawMsg);
+        rawMessage = std::make_unique<json>(rawMsg);
     }
 
-    auto ResumeAckSignal::getType() -> Sign
+    auto ResumeAckSignal::getType() const noexcept -> Sign
     {
         return Sign::RESUME_ACK;
     }

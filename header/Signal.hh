@@ -9,6 +9,8 @@
 #include <string>
 #include <format>
 #include <memory>
+#include <iostream>
+#include <exception>
 #include <hv/json.hpp>
 
 namespace ZeroBot::Signal
@@ -36,13 +38,13 @@ namespace ZeroBot::Signal
     protected:
         unique_ptr<json> rawMessage;
 
-
-
     public:
 
-        [[nodiscard]] static auto construct(unique_ptr<json> rawMsg) -> unique_ptr<SignalBase>;
+        [[nodiscard]] static auto construct(json&& rawMsg) -> unique_ptr<SignalBase>;
 
-        [[nodiscard]] virtual auto getType() -> Sign = 0;
+        [[nodiscard]] virtual auto getType() const noexcept -> Sign = 0;
+
+        [[nodiscard]] auto getRawMsg() const noexcept -> json;
 
         virtual ~SignalBase() = default;
 
@@ -56,9 +58,9 @@ namespace ZeroBot::Signal
     public:
         EventSignal() = delete;
 
-        explicit EventSignal(unique_ptr<json> rawMsg);
+        explicit EventSignal(json&& rawMsg);
 
-        auto getType() -> Sign final;
+        [[nodiscard]] auto getType() const noexcept -> Sign final;
     };
 
     class HelloSignal final : public SignalBase
@@ -66,9 +68,9 @@ namespace ZeroBot::Signal
     public:
         HelloSignal() = delete;
 
-        explicit HelloSignal(unique_ptr<json> rawMsg);
+        explicit HelloSignal(json&& rawMsg);
 
-        auto getType() -> Sign final;
+        [[nodiscard]] auto getType() const noexcept -> Sign final;
     };
 
     class PingSignal final : public SignalBase
@@ -76,11 +78,11 @@ namespace ZeroBot::Signal
     public:
         PingSignal() = delete;
 
-        explicit PingSignal(unique_ptr<json> rawMsg);
+        explicit PingSignal(json&& rawMsg);
 
         static auto rawString(const int& sn) -> string;
 
-        auto getType() -> Sign final;
+        [[nodiscard]] auto getType() const noexcept -> Sign final;
     };
 
     class PongSignal final : public SignalBase
@@ -88,9 +90,9 @@ namespace ZeroBot::Signal
     public:
         PongSignal() = delete;
 
-        explicit PongSignal(unique_ptr<json> rawMsg);
+        explicit PongSignal(json&& rawMsg);
 
-        auto getType() -> Sign final;
+        [[nodiscard]] auto getType() const noexcept -> Sign final;
     };
 
     class ResumeSignal final : public SignalBase
@@ -98,9 +100,9 @@ namespace ZeroBot::Signal
     public:
         ResumeSignal() = delete;
 
-        explicit ResumeSignal(unique_ptr<json> rawMsg);
+        explicit ResumeSignal(json&& rawMsg);
 
-        auto getType() -> Sign final;
+        [[nodiscard]] auto getType() const noexcept -> Sign final;
     };
 
     class ReconnectSignal final : public SignalBase
@@ -108,11 +110,11 @@ namespace ZeroBot::Signal
     public:
         ReconnectSignal() = delete;
 
-        explicit ReconnectSignal(unique_ptr<json> rawMsg);
+        explicit ReconnectSignal(json&& rawMsg);
 
         static auto rawString(const int& sn) -> string;
 
-        auto getType() -> Sign final;
+        [[nodiscard]] auto getType() const noexcept -> Sign final;
     };
 
     class ResumeAckSignal final : public SignalBase
@@ -120,9 +122,9 @@ namespace ZeroBot::Signal
     public:
         ResumeAckSignal() = delete;
 
-        explicit ResumeAckSignal(unique_ptr<json> rawMsg);
+        explicit ResumeAckSignal(json&& rawMsg);
 
-        auto getType() -> Sign final;
+        [[nodiscard]] auto getType() const noexcept -> Sign final;
     };
 }
 

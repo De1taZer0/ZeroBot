@@ -7,14 +7,16 @@
 ///
 
 #include <queue>
+#include <atomic>
 #include <string>
 #include <functional>
 #include <hv/json.hpp>
 #include <hv/requests.h>
 #include <hv/EventLoop.h>
 #include <hv/WebSocketClient.h>
-#include "Setting.hh"
+#include "Event.hh"
 #include "Signal.hh"
+#include "Setting.hh"
 
 #define SN_MAX (65535)
 #define PING_INTERVAL (30000)
@@ -38,14 +40,35 @@ namespace ZeroBot::Bot
 
     using json = nlohmann::json;
 
+    using EventBase = Event::EventBase;
+    using Event_Type = Event::Event_Type;
+    using Channel_Type = Event::Channel_Type;
+    using Msg_Type = Event::Msg_Type;
+
     using Sign = Signal::Sign;
     using SignalBase = Signal::SignalBase;
     using PingSignal = Signal::PingSignal;
     using ReconnectSignal = Signal::ReconnectSignal;
 
+    using CallbackFuncType = std::function<void(const EventBase&)>;
+
     class BotInstance
     {
     private:
+
+        std::atomic<bool> pongMark;
+        std::atomic<bool> closeMark;
+        std::atomic<bool> helloMark;
+        std::atomic<bool> resumeMark;
+        std::atomic<bool> timeoutMark;
+        std::atomic<bool> gatewayMark;
+        std::atomic<bool> reconnectMark;
+
+        int compress{};
+        string gatewayAPI;
+        string websocketUrl;
+        string authorization;
+
         hv::WebSocketClient wsCli;
 
         hv::EventLoopThreadPtr pingLoopThread;
@@ -53,26 +76,11 @@ namespace ZeroBot::Bot
         hv::EventLoopThreadPtr timeoutLoopThread;
         hv::EventLoopThreadPtr resumeLoopThread;
 
-        bool pongMark;
-        bool helloMark;
-
-        bool reconnectMark;
-        bool timeoutMark;
-        bool resumeMark;
-
-        int resumeIntervalCnt;
-        int resumeCnt;
-
-        int s;
-        int sn;
-        int maxSn;
-
-        string gatewayAPI;
-        string websocketUrl;
-        string authorization;
-        int compress{};
-
         queue<unique_ptr<SignalBase>> signalQueue;
+
+        priority_queue<unique_ptr<EventBase>> eventQueue;
+
+        std::unordered_map<Event::Event_Type, CallbackFuncType, Event::EventHash> onEventFuncMap;
 
         [[nodiscard]] auto getGatewayUrl() -> bool;
 
@@ -81,9 +89,15 @@ namespace ZeroBot::Bot
 
         ~BotInstance();
 
-        void run();
+        template<class EventType> auto onEvent(std::function<void(const EventType&)> callbackFunc) -> void;
 
+        void run();
     };
+
+    namespace _export
+    {
+        void func();
+    }
 
 } // ZeroBot
 

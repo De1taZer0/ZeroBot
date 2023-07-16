@@ -4,15 +4,13 @@ namespace ZeroBot::Bot
 {
     BotInstance::BotInstance()
     {
-        pongMark = false;
-        helloMark = false;
 
-        reconnectMark = false;
-        timeoutMark = false;
-        resumeMark = false;
+        closeMark = false;
 
-        resumeIntervalCnt = 0;
-        resumeCnt = 1;
+        pingLoopThread = std::make_unique<hv::EventLoopThread>();
+        startLoopThread = std::make_unique<hv::EventLoopThread>();
+        timeoutLoopThread = std::make_unique<hv::EventLoopThread>();
+        resumeLoopThread = std::make_unique<hv::EventLoopThread>();
 
         std::tie( authorization, gatewayAPI, compress ) = ZeroBot::Setting::initSetting();
 
@@ -28,14 +26,19 @@ namespace ZeroBot::Bot
         {
             std::cout << "onMessage:" + msg << std::endl;
 
-            signalQueue.emplace(std::move(SignalBase::construct(std::make_unique<json>(msg))));
+            try
+            {
+                signalQueue.emplace(std::move(SignalBase::construct(std::move(json::parse(msg)))));
+            }
+            catch(std::exception& e)
+            {
+                std::cout << e.what() << std::endl;
+            }
         };
-
-        pingLoopThread = std::make_unique<hv::EventLoopThread>();
 
         auto pingPongStat = [this](std::function<void(void)> pongFailFunc) -> void
         {
-            this->wsCli.send(PingSignal::rawString(maxSn));
+            this->wsCli.send(PingSignal::rawString(EventBase::getMaxSN()));
             pingLoopThread->loop()->setTimeout(TIMEOUT, [this, &pongFailFunc](auto timerID)
             {
                 if(!pongMark)
@@ -89,7 +92,7 @@ namespace ZeroBot::Bot
 
         auto resumeStat = [this](std::function<void(void)> resumeFailFunc) -> void
         {
-            this->wsCli.send(ReconnectSignal::rawString(maxSn));
+            this->wsCli.send(ReconnectSignal::rawString(EventBase::getMaxSN()));
             resumeLoopThread->loop()->setTimeout(TIMEOUT, [this, &resumeFailFunc](auto timerID)
             {
                 if(resumeMark)
@@ -111,20 +114,11 @@ namespace ZeroBot::Bot
                 {
                     resumeStat([this]()
                     {
-                        int getGatewayInterval = REC_INTERVAL;
-                        while(getGatewayUrl())
-                        {
-                            hv_msleep(getGatewayInterval);
-                            std::cout << "Resume fail, trying to get gateway." << std::endl;
-                            getGatewayInterval = min(REC_INTERVAL * MAX_CNT_GET_GATEWAY, getGatewayInterval << 1);
-                        }
-                        timeoutMark = false;
-                        resumeMark = false;
+                        reconnectMark = true;
                     });
                 });
             });
         });
-
     }
 
     BotInstance::~BotInstance()
@@ -160,32 +154,64 @@ namespace ZeroBot::Bot
         }
     }
 
-    void BotInstance::run()
+    template<class EventType>
+    auto BotInstance::onEvent(std::function<void(const EventType&)> callbackFunc) -> void
     {
-        while(getGatewayUrl())
+        EventType event;
+        onEventFuncMap[event.getType()] = [callbackFunc](const EventBase& msg) -> void
         {
+            try
+            {
+                callbackFunc(static_cast<const EventType&>(msg));
+            }
+            catch(const std::exception& e)
+            {
+                const auto& eventType = msg.getType();
+                std::cerr << eventType.cType << " " << eventType.mType << std::endl;
+                std::cerr << "\tBotInstance::onEvent error: " << e.what() << std::endl;
+            }
+        };
+    }
+
+    auto BotInstance::run() -> void
+    {
+        while(!closeMark)
+        {
+            gatewayMark = getGatewayUrl();
+            int getGatewayInterval = REC_INTERVAL;
+            if(!gatewayMark)
+            {
+                hv_msleep(getGatewayInterval);
+                std::cout << "Connect fail, trying to re-get gateway." << std::endl;
+                getGatewayInterval = min(REC_INTERVAL * MAX_CNT_GET_GATEWAY, getGatewayInterval << 1);
+            }
+            pongMark = false;
+            helloMark = false;
+            resumeMark = false;
+            timeoutMark = false;
             reconnectMark = false;
-
-            startLoopThread->start();
-
-            pingLoopThread->start();
 
             http_headers headers;
             headers["Authorization"] = authorization;
 
             wsCli.open(websocketUrl.c_str(), headers);
 
+            hv_msleep(500);
+
+            startLoopThread->start();
+            pingLoopThread->start();
+
             while(!reconnectMark)
             {
                 if(!signalQueue.empty())
                 {
-                    auto signal(std::move(signalQueue.front()));
+                    auto signal = std::move(signalQueue.front());
                     signalQueue.pop();
                     switch(signal->getType())
                     {
                         case Sign::EVENT:
-
-
+                            eventQueue.emplace(std::move(EventBase::construct(signal->getRawMsg().get<json>())));
+                            break;
                         case Sign::HELLO:
                             helloMark = true;
                             break;
@@ -202,7 +228,7 @@ namespace ZeroBot::Bot
                             startLoopThread->stop(true);
                             timeoutLoopThread->stop(true);
                             resumeLoopThread->stop(true);
-                            maxSn = 0;
+                            EventBase::resetMaxSN();
                             while(!signalQueue.empty())
                             {
                                 signalQueue.pop();
@@ -214,8 +240,27 @@ namespace ZeroBot::Bot
                             break;
                     }
                 }
+                if(!eventQueue.empty())
+                {
+                    std::shared_ptr<EventBase> event = std::move(const_cast<unique_ptr<EventBase>&>(eventQueue.top()));
+                    eventQueue.pop();
+                    if(onEventFuncMap.count(event->getType()) != 0)
+                    {
+                        onEventFuncMap.at(event->getType())(*event);
+                    }
+                }
             }
+
+            wsCli.close();
         }
+    }
+
+    void _export::func()
+    {
+        BotInstance bot;
+        bot.onEvent<Event::EventGroupMsg>([](auto&){});
+        bot.onEvent<Event::EventPersonMsg>([](auto&){});
+        bot.onEvent<Event::EventBroadcastMsg>([](auto&){});
     }
 
 } // ZeroBot

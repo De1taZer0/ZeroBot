@@ -42,6 +42,10 @@ namespace ZeroBot::Object
         string vip_avatar; ///< vip 用户的头像的 url 地址，可能为 gif 动图
         bool mobile_verified; ///< 是否手机号已验证
         array<int> roles; ///< 用户在当前服务器中的角色 id 组成的列表
+
+        User() = default;
+
+        explicit User(json&& rawMsg);
     };
 
     ///
@@ -76,6 +80,10 @@ namespace ZeroBot::Object
         int hoist; ///< 是否为角色设定(与普通成员分开显示)
         int mentionable; ///< 是否允许任何人\@提及此角色
         int permissions; ///< 权限码
+
+        Role() = default;
+
+        explicit Role(json&& rawMsg);
     };
 
     ///
@@ -138,16 +146,24 @@ namespace ZeroBot::Object
         string url; ///< 多媒体地址
         string name; ///< 多媒体名
         int size; ///< 大小 单位 Byte
+
+        Attachments() = default;
+
+        explicit Attachments(json&& rawMsg);
     };
 
     ///
-    /// @struct KMarkDown
+    /// @struct KMarkdown
     ///
-    struct KMarkDown
+    struct KMarkdown
     {
         string raw_content;
         array<User> mention_part;
         array<Role> mention_role_part;
+
+        KMarkdown() = default;
+
+        explicit KMarkdown(json&& rawMsg);
     };
 }
 
