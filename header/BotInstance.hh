@@ -20,6 +20,8 @@
 #define PING_INTERVAL (30000)
 #define TIMEOUT (6000)
 #define START_TIMEOUT (6000)
+#define REC_INTERVAL (1000)
+#define MAX_CNT_GET_GATEWAY (60)
 
 namespace ZeroBot::Bot
 {
@@ -39,6 +41,7 @@ namespace ZeroBot::Bot
     using Sign = Signal::Sign;
     using SignalBase = Signal::SignalBase;
     using PingSignal = Signal::PingSignal;
+    using ReconnectSignal = Signal::ReconnectSignal;
 
     class BotInstance
     {
@@ -71,7 +74,7 @@ namespace ZeroBot::Bot
 
         queue<unique_ptr<SignalBase>> signalQueue;
 
-        [[nodiscard]] auto getGatewayUrl() -> int;
+        [[nodiscard]] auto getGatewayUrl() -> bool;
 
     public:
         BotInstance();

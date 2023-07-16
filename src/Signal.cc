@@ -90,6 +90,12 @@ namespace ZeroBot::Signal
         rawMessage = std::move(rawMsg);
     }
 
+    auto ReconnectSignal::rawString(const int &sn) -> string
+    {
+        return json{ { "s", static_cast<int>(Sign::RECONNECT) },
+                     { "sn", sn } }.dump();
+    }
+
     auto ReconnectSignal::getType() -> Sign
     {
         return Sign::RECONNECT;

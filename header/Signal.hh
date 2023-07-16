@@ -110,6 +110,8 @@ namespace ZeroBot::Signal
 
         explicit ReconnectSignal(unique_ptr<json> rawMsg);
 
+        static auto rawString(const int& sn) -> string;
+
         auto getType() -> Sign final;
     };
 

@@ -33,14 +33,14 @@ namespace ZeroBot::Bot
 
         pingLoopThread = std::make_unique<hv::EventLoopThread>();
 
-        auto pingPongStat = [this](std::function<void(void)> pongFail) -> void
+        auto pingPongStat = [this](std::function<void(void)> pongFailFunc) -> void
         {
             this->wsCli.send(PingSignal::rawString(maxSn));
-            pingLoopThread->loop()->setTimeout(TIMEOUT, [this, &pongFail](auto timerID)
+            pingLoopThread->loop()->setTimeout(TIMEOUT, [this, &pongFailFunc](auto timerID)
             {
                 if(!pongMark)
                 {
-                    pongFail();
+                    pongFailFunc();
                 }
                 else
                 {
@@ -57,16 +57,20 @@ namespace ZeroBot::Bot
                 pingPongStat([this, &pingPongStat]()
                 {
                     timeoutMark = true;
-                    timeoutLoopThread->loop()->setInterval(PING_INTERVAL << 1, [this, &pingPongStat](auto timerID)
+                    timeoutLoopThread->loop()->setTimeout(REC_INTERVAL << 1, [this, &pingPongStat](auto timerID)
                     {
                         pingPongStat([this, &pingPongStat]()
                         {
-                            timeoutLoopThread->loop()->setInterval(PING_INTERVAL << 2, [this, &pingPongStat](auto timerID)
+                            timeoutLoopThread->loop()->setTimeout(REC_INTERVAL << 2, [this, &pingPongStat](auto timerID)
                             {
                                 pingPongStat([this]()
                                 {
                                     resumeMark = true;
-                                    resumeLoopThread->start();
+                                    std::cout << "Timeout, resuming." << std::endl;
+                                    if(getGatewayUrl())
+                                    {
+                                        resumeLoopThread->start();
+                                    }
                                 });
                             });
                         });
@@ -83,15 +87,44 @@ namespace ZeroBot::Bot
             }
         });
 
-        auto resumeStat = [this]() -> void
+        auto resumeStat = [this](std::function<void(void)> resumeFailFunc) -> void
         {
-
+            this->wsCli.send(ReconnectSignal::rawString(maxSn));
+            resumeLoopThread->loop()->setTimeout(TIMEOUT, [this, &resumeFailFunc](auto timerID)
+            {
+                if(resumeMark)
+                {
+                    resumeFailFunc();
+                }
+                else
+                {
+                    timeoutMark = false;
+                }
+            });
         };
 
-        resumeLoopThread->loop()->setTimeout(TIMEOUT << 3, [this](auto timerID)
+        resumeLoopThread->loop()->runInLoop([this, &resumeStat]()
         {
-
+            resumeStat([this, &resumeStat]()
+            {
+                resumeLoopThread->loop()->setTimeout(REC_INTERVAL << 3, [this, &resumeStat](auto timerID)
+                {
+                    resumeStat([this]()
+                    {
+                        int getGatewayInterval = REC_INTERVAL;
+                        while(getGatewayUrl())
+                        {
+                            hv_msleep(getGatewayInterval);
+                            std::cout << "Resume fail, trying to get gateway." << std::endl;
+                            getGatewayInterval = min(REC_INTERVAL * MAX_CNT_GET_GATEWAY, getGatewayInterval << 1);
+                        }
+                        timeoutMark = false;
+                        resumeMark = false;
+                    });
+                });
+            });
         });
+
     }
 
     BotInstance::~BotInstance()
@@ -101,7 +134,7 @@ namespace ZeroBot::Bot
         pingLoopThread->loop()->stop();
     }
 
-    auto BotInstance::getGatewayUrl() -> int
+    auto BotInstance::getGatewayUrl() -> bool
     {
         HttpRequestPtr req(new HttpRequest);
 
@@ -115,13 +148,21 @@ namespace ZeroBot::Bot
 
         websocketUrl = resp->GetJson().at("data").at("url").get<string>();
 
-        return resp->GetJson().at("code").get<int>();
+        auto code = resp->GetJson().at("code").get<int>();
+        if(code == 0)
+        {
+           return true;
+        }
+        else
+        {
+            std::cout << std::format("Cannot get Gateway.code:{}", code);
+            return false;
+        }
     }
 
     void BotInstance::run()
     {
-        int res;
-        while((res = getGatewayUrl()) == 0)
+        while(getGatewayUrl())
         {
             reconnectMark = false;
 
@@ -155,7 +196,7 @@ namespace ZeroBot::Bot
                             break;
                         case Sign::RESUME:
                             break;
-                        case Sign::RECONNECT: //
+                        case Sign::RECONNECT:
                         {
                             pingLoopThread->stop(true);
                             startLoopThread->stop(true);
@@ -169,14 +210,11 @@ namespace ZeroBot::Bot
                             reconnectMark = true;
                         }
                         case Sign::RESUME_ACK:
+                            resumeMark = false;
                             break;
                     }
                 }
             }
-        }
-        if(res != 0)
-        {
-            std::cout << std::format("Cannot get Gateway.code:{}",res);
         }
     }
 
