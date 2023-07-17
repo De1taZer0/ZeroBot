@@ -33,6 +33,8 @@ namespace ZeroBot::Signal
         RESUME_ACK = 6
     };
 
+    std::ostream& operator << (std::ostream& o, Sign sign);
+
     class SignalBase
     {
     protected:

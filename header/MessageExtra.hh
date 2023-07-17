@@ -71,7 +71,7 @@ namespace ZeroBot::MessageExtra
     {
     public:
         Msg_Type type;
-        string code; ///<
+//        string code; ///<
         string guild_id; ///< 服务器 id
         array<Attachments> attachments; ///< 附件
         User author; ///< 用户信息

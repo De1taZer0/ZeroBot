@@ -9,80 +9,93 @@ namespace ZeroBot::Bot
 
         pingLoopThread = std::make_unique<hv::EventLoopThread>();
         startLoopThread = std::make_unique<hv::EventLoopThread>();
-        timeoutLoopThread = std::make_unique<hv::EventLoopThread>();
         resumeLoopThread = std::make_unique<hv::EventLoopThread>();
+        timeoutLoopThread = std::make_unique<hv::EventLoopThread>();
 
         std::tie( authorization, gatewayAPI, compress ) = ZeroBot::Setting::initSetting();
 
-        wsCli.onopen = []()
+        wsCli = std::make_shared<hv::WebSocketClient>();
+
+        wsCli->onopen = []()
         {
             std::cout << "onOpen" << std::endl;
         };
-        wsCli.onclose = []()
+        wsCli->onclose = []()
         {
             std::cout << "onClose" << std::endl;
         };
-        wsCli.onmessage = [this](const std::string& msg)
+        wsCli->onmessage = [this](const std::string& msg)
         {
             std::cout << "onMessage:" + msg << std::endl;
-
             try
             {
                 signalQueue.emplace(std::move(SignalBase::construct(std::move(json::parse(msg)))));
             }
             catch(std::exception& e)
             {
-                std::cout << e.what() << std::endl;
+                std::cout << "\t--OnMessage: " << msg << std::endl;
             }
         };
 
-        auto pingPongStat = [this](std::function<void(void)> pongFailFunc) -> void
-        {
-            this->wsCli.send(PingSignal::rawString(EventBase::getMaxSN()));
-            pingLoopThread->loop()->setTimeout(TIMEOUT, [this, &pongFailFunc](auto timerID)
-            {
-                if(!pongMark)
-                {
-                    pongFailFunc();
-                }
-                else
-                {
-                    pongMark = false;
-                    timeoutMark = false;
-                }
-            });
-        };
-
-        pingLoopThread->loop()->setInterval(PING_INTERVAL, [this, &pingPongStat](auto timerID)
+        pingLoopThread->loop()->setInterval(PING_INTERVAL, [this](auto timerID) -> void
         {
             if(!timeoutMark)
             {
-                pingPongStat([this, &pingPongStat]()
+                std::cout << "pinging..." << std::endl;
+                wsCli->send(PingSignal::rawString(EventBase::getMaxSN()));
+                pingLoopThread->loop()->setTimeout(TIMEOUT, [this](auto timerID)
                 {
-                    timeoutMark = true;
-                    timeoutLoopThread->loop()->setTimeout(REC_INTERVAL << 1, [this, &pingPongStat](auto timerID)
+                    if(!pongMark)
                     {
-                        pingPongStat([this, &pingPongStat]()
+                        timeoutMark = true;
+                        std::cout << "\tping timeout, trying to ping: 1" << std::endl;
+                        timeoutLoopThread->loop()->setTimeout(REC_INTERVAL << 1, [this](auto timerID) -> void
                         {
-                            timeoutLoopThread->loop()->setTimeout(REC_INTERVAL << 2, [this, &pingPongStat](auto timerID)
+                            std::cout << "pinging...1" << std::endl;
+                            wsCli->send(PingSignal::rawString(EventBase::getMaxSN()));
+                            pingLoopThread->loop()->setTimeout(TIMEOUT, [this](auto timerID)
                             {
-                                pingPongStat([this]()
+                                if(!pongMark)
                                 {
-                                    resumeMark = true;
-                                    std::cout << "Timeout, resuming." << std::endl;
-                                    if(getGatewayUrl())
+                                    std::cout << "\tping timeout, trying to ping: 2" << std::endl;
+                                    timeoutLoopThread->loop()->setTimeout(REC_INTERVAL << 2, [this](auto timerID) -> void
                                     {
-                                        resumeLoopThread->start();
-                                    }
-                                });
+                                        std::cout << "pinging...2" << std::endl;
+                                        wsCli->send(PingSignal::rawString(EventBase::getMaxSN()));
+                                        pingLoopThread->loop()->setTimeout(TIMEOUT, [this](auto timerID)
+                                        {
+                                            if(!pongMark)
+                                            {
+                                                resumeMark = true;
+                                                std::cout << "Timeout, resuming." << std::endl;
+                                                resumeLoopThread->start();
+                                            }
+                                            else
+                                            {
+                                                pongMark = false;
+                                                timeoutMark = false;
+                                            }
+                                        });
+                                    });
+                                }
+                                else
+                                {
+                                    pongMark = false;
+                                    timeoutMark = false;
+                                }
                             });
                         });
-                    });
+                    }
+                    else
+                    {
+                        pongMark = false;
+                        timeoutMark = false;
+                    }
                 });
             }
         });
 
-        startLoopThread->loop()->setTimeout(START_TIMEOUT, [this](auto timerID)
+        startLoopThread->loop()->setTimeout(START_TIMEOUT, [this](auto timerID) -> void
         {
             if(!helloMark)
             {
@@ -90,42 +103,45 @@ namespace ZeroBot::Bot
             }
         });
 
-        auto resumeStat = [this](std::function<void(void)> resumeFailFunc) -> void
+        resumeLoopThread->loop()->setTimeout(REC_INTERVAL << 3, [this](auto timerID) -> void
         {
-            this->wsCli.send(ReconnectSignal::rawString(EventBase::getMaxSN()));
-            resumeLoopThread->loop()->setTimeout(TIMEOUT, [this, &resumeFailFunc](auto timerID)
+            this->wsCli->send(ReconnectSignal::rawString(EventBase::getMaxSN()));
+            resumeLoopThread->loop()->setTimeout(TIMEOUT, [this](auto timerID) -> void
             {
                 if(resumeMark)
                 {
-                    resumeFailFunc();
+                    resumeLoopThread->loop()->setTimeout(REC_INTERVAL << 4, [this](auto timerID) -> void
+                    {
+                        this->wsCli->send(ReconnectSignal::rawString(EventBase::getMaxSN()));
+                        resumeLoopThread->loop()->setTimeout(TIMEOUT, [this](auto timerID) -> void
+                        {
+                            if(resumeMark)
+                            {
+                                reconnectMark = true;
+                            }
+                            else
+                            {
+                                timeoutMark = false;
+                            }
+                        });
+                    });
                 }
                 else
                 {
                     timeoutMark = false;
                 }
             });
-        };
-
-        resumeLoopThread->loop()->runInLoop([this, &resumeStat]()
-        {
-            resumeStat([this, &resumeStat]()
-            {
-                resumeLoopThread->loop()->setTimeout(REC_INTERVAL << 3, [this, &resumeStat](auto timerID)
-                {
-                    resumeStat([this]()
-                    {
-                        reconnectMark = true;
-                    });
-                });
-            });
         });
     }
 
     BotInstance::~BotInstance()
     {
-        wsCli.close();
+        wsCli->close();
 
-        pingLoopThread->loop()->stop();
+        pingLoopThread->stop(true);
+        startLoopThread->stop(true);
+        resumeLoopThread->stop(true);
+        timeoutLoopThread->stop(true);
     }
 
     auto BotInstance::getGatewayUrl() -> bool
@@ -135,6 +151,11 @@ namespace ZeroBot::Bot
         req->method = HTTP_GET;
         req->url = gatewayAPI + "?compress=" + std::to_string(compress);
         req->headers["Authorization"] = authorization;
+
+        if(reconnectMark)
+        {
+            req->url += "&resume=1&sn=" + std::to_string(EventBase::getMaxSN()) + "&session_id=" + session_id;
+        }
 
         HttpResponsePtr resp(new HttpResponse);
 
@@ -167,8 +188,9 @@ namespace ZeroBot::Bot
             catch(const std::exception& e)
             {
                 const auto& eventType = msg.getType();
-                std::cerr << eventType.cType << " " << eventType.mType << std::endl;
-                std::cerr << "\tBotInstance::onEvent error: " << e.what() << std::endl;
+                std::cout << "Error occurred when calling function onEvent: " << eventType.cType << " " << eventType.mType;
+                std::cout << "\n\t" << e.what();
+                std::cout << "\n\t\t--In BotInstance::onEvent error: " << std::endl;
             }
         };
     }
@@ -194,7 +216,7 @@ namespace ZeroBot::Bot
             http_headers headers;
             headers["Authorization"] = authorization;
 
-            wsCli.open(websocketUrl.c_str(), headers);
+            wsCli->open(websocketUrl.c_str(), headers);
 
             hv_msleep(500);
 
@@ -207,41 +229,54 @@ namespace ZeroBot::Bot
                 {
                     auto signal = std::move(signalQueue.front());
                     signalQueue.pop();
-                    switch(signal->getType())
+                    try
                     {
-                        case Sign::EVENT:
-                            eventQueue.emplace(std::move(EventBase::construct(signal->getRawMsg().get<json>())));
-                            break;
-                        case Sign::HELLO:
-                            helloMark = true;
-                            break;
-                        case Sign::PING:
-                            break;
-                        case Sign::PONG:
-                            pongMark = true;
-                            break;
-                        case Sign::RESUME:
-                            break;
-                        case Sign::RECONNECT:
+                        switch(signal->getType())
                         {
-                            pingLoopThread->stop(true);
-                            startLoopThread->stop(true);
-                            timeoutLoopThread->stop(true);
-                            resumeLoopThread->stop(true);
-                            EventBase::resetMaxSN();
-                            while(!signalQueue.empty())
+                            case Sign::EVENT:
+                                std::cout << "--On event:" << signal->getRawMsg() << std::endl;
+                                eventQueue.emplace(std::move(EventBase::construct(signal->getRawMsg().get<json>())));
+                                break;
+                            case Sign::HELLO:
+                                std::cout << "--On hello:" << signal->getRawMsg() << std::endl;
+                                session_id = signal->getRawMsg().at("d").at("session_id").get<string>();
+                                helloMark = true;
+                                break;
+                            case Sign::PING:
+                                break;
+                            case Sign::PONG:
+                                std::cout << "--On pong:" << signal->getRawMsg() << std::endl;
+                                pongMark = true;
+                                break;
+                            case Sign::RESUME:
+                                break;
+                            case Sign::RECONNECT:
                             {
-                                signalQueue.pop();
+                                std::cout << "--On reconnect:" << signal->getRawMsg() << std::endl;
+                                pingLoopThread->stop(true);
+                                startLoopThread->stop(true);
+                                timeoutLoopThread->stop(true);
+                                resumeLoopThread->stop(true);
+                                EventBase::resetMaxSN();
+                                while(!signalQueue.empty())
+                                {
+                                    signalQueue.pop();
+                                }
+                                reconnectMark = true;
                             }
-                            reconnectMark = true;
+                            case Sign::RESUME_ACK:
+                                resumeMark = false;
+                                break;
                         }
-                        case Sign::RESUME_ACK:
-                            resumeMark = false;
-                            break;
+                    }
+                    catch(const std::exception& e)
+                    {
+                        std::cout << "\t--On processing signal:" << signal->getType() << ": " << e.what() << std::endl;
                     }
                 }
                 if(!eventQueue.empty())
                 {
+                    std::cout << 1 << std::endl;
                     std::shared_ptr<EventBase> event = std::move(const_cast<unique_ptr<EventBase>&>(eventQueue.top()));
                     eventQueue.pop();
                     if(onEventFuncMap.count(event->getType()) != 0)
@@ -251,7 +286,12 @@ namespace ZeroBot::Bot
                 }
             }
 
-            wsCli.close();
+            wsCli->close();
+
+            pingLoopThread->stop(true);
+            startLoopThread->stop(true);
+            resumeLoopThread->stop(true);
+            timeoutLoopThread->stop(true);
         }
     }
 

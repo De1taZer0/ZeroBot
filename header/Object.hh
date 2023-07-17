@@ -8,6 +8,8 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
+#include <exception>
 #include <hv/json.hpp>
 
 namespace ZeroBot::Object
@@ -40,7 +42,7 @@ namespace ZeroBot::Object
         int status; ///< 用户的状态, 0 和 1 代表正常，10 代表被封禁
         string avatar; ///< 用户的头像的 url 地址
         string vip_avatar; ///< vip 用户的头像的 url 地址，可能为 gif 动图
-        bool mobile_verified; ///< 是否手机号已验证
+//        bool mobile_verified; ///< 是否手机号已验证
         array<int> roles; ///< 用户在当前服务器中的角色 id 组成的列表
 
         User() = default;

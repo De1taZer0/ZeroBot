@@ -36,145 +36,217 @@ namespace ZeroBot::MessageExtra
 
     TextMsg::TextMsg(json&& rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
+        try
+        {
+            rawMessage = std::make_unique<json>(rawMsg);
 
-        type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
-        code = rawMessage->at("code").get<string>();
-        guild_id = rawMessage->at("guild_id").get<string>();
-        channel_name = rawMessage->at("channel_name").get<string>();
-        mention.clear();
-        for(auto& i : rawMessage->at("mention").get<json>())
-        {
-            mention.push_back(std::move(i.get<string>()));
+            type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
+            code = rawMessage->at("code").get<string>();
+            guild_id = rawMessage->at("guild_id").get<string>();
+            channel_name = rawMessage->at("channel_name").get<string>();
+            mention.clear();
+            for(auto& i : rawMessage->at("mention").get<json>())
+            {
+                mention.push_back(std::move(i.get<string>()));
+            }
+            mention_all = rawMessage->at("mention_all").get<bool>();
+            mention_roles.clear();
+            for(auto& i : rawMessage->at("mention_roles").get<json>())
+            {
+                mention_roles.emplace_back(std::move(i.get<json>()));
+            }
+            mention_here = rawMessage->at("mention_here").get<bool>();
+            author = User(std::move(rawMessage->at("author").get<json>()));
         }
-        mention_all = rawMessage->at("mention_all").get<bool>();
-        mention_roles.clear();
-        for(auto& i : rawMessage->at("mention_roles").get<json>())
+        catch(const std::exception& e)
         {
-            mention_roles.emplace_back(std::move(i.get<json>()));
+            std::cout << "\t--In constructor of TextMsg: " << e.what() << std::endl;
+            throw e;
         }
-        mention_here = rawMessage->at("mention_here").get<bool>();
-        author = User(std::move(rawMessage->at("author").get<json>()));
     }
 
     ImageMsg::ImageMsg(json&& rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
-
-        type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
-        code = rawMessage->at("code").get<string>();
-        guild_id = rawMessage->at("guild_id").get<string>();
-        attachments.clear();
-        for(auto& i : rawMessage->at("attachments").get<json>())
+        try
         {
-            attachments.emplace_back(std::move(i.get<json>()));
+            rawMessage = std::make_unique<json>(rawMsg);
+
+            type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
+//            code = rawMessage->at("code").get<string>();
+            guild_id = rawMessage->at("guild_id").get<string>();
+            attachments.clear();
+            for(auto& i : rawMessage->at("attachments").get<json>())
+            {
+                attachments.emplace_back(std::move(i.get<json>()));
+            }
+            author = User(std::move(rawMessage->at("author").get<json>()));
         }
-        author = User(std::move(rawMessage->at("author").get<json>()));
+        catch(const std::exception& e)
+        {
+            std::cout << "\t--In constructor of ImageMsg: " << e.what() << std::endl;
+            throw e;
+        }
     }
 
     VideoMsg::VideoMsg(json &&rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
-
-        type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
-        code = rawMessage->at("code").get<string>();
-        guild_id = rawMessage->at("guild_id").get<string>();
-        attachments.clear();
-        for(auto& i : rawMessage->at("attachments").get<json>())
+        try
         {
-            attachments.emplace_back(std::move(i.get<json>()));
+            rawMessage = std::make_unique<json>(rawMsg);
+
+            type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
+            code = rawMessage->at("code").get<string>();
+            guild_id = rawMessage->at("guild_id").get<string>();
+            attachments.clear();
+            for(auto& i : rawMessage->at("attachments").get<json>())
+            {
+                attachments.emplace_back(std::move(i.get<json>()));
+            }
+            author = User(std::move(rawMessage->at("author").get<json>()));
         }
-        author = User(std::move(rawMessage->at("author").get<json>()));
+        catch(const std::exception& e)
+        {
+            std::cout << "\t--In constructor of VideoMsg: " << e.what() << std::endl;
+            throw e;
+        }
     }
 
     FileMsg::FileMsg(json &&rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
-
-        type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
-        code = rawMessage->at("code").get<string>();
-        guild_id = rawMessage->at("guild_id").get<string>();
-        attachments.clear();
-        for(auto& i : rawMessage->at("attachments").get<json>())
+        try
         {
-            attachments.emplace_back(std::move(i.get<json>()));
+            rawMessage = std::make_unique<json>(rawMsg);
+
+            type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
+            code = rawMessage->at("code").get<string>();
+            guild_id = rawMessage->at("guild_id").get<string>();
+            attachments.clear();
+            for(auto& i : rawMessage->at("attachments").get<json>())
+            {
+                attachments.emplace_back(std::move(i.get<json>()));
+            }
+            author = User(std::move(rawMessage->at("author").get<json>()));
         }
-        author = User(std::move(rawMessage->at("author").get<json>()));
+        catch(const std::exception& e)
+        {
+            std::cout << "\t--In constructor of VideoMsg: " << e.what() << std::endl;
+            throw e;
+        }
     }
 
     SoundMsg::SoundMsg(json &&rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
-
-        type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
-        code = rawMessage->at("code").get<string>();
-        guild_id = rawMessage->at("guild_id").get<string>();
-        attachments.clear();
-        for(auto& i : rawMessage->at("attachments").get<json>())
+        try
         {
-            attachments.emplace_back(std::move(i.get<json>()));
+            rawMessage = std::make_unique<json>(rawMsg);
+
+            type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
+            code = rawMessage->at("code").get<string>();
+            guild_id = rawMessage->at("guild_id").get<string>();
+            attachments.clear();
+            for(auto& i : rawMessage->at("attachments").get<json>())
+            {
+                attachments.emplace_back(std::move(i.get<json>()));
+            }
+            author = User(std::move(rawMessage->at("author").get<json>()));
         }
-        author = User(std::move(rawMessage->at("author").get<json>()));
+        catch(const std::exception& e)
+        {
+            std::cout << "\t--In constructor of SoundMsg: " << e.what() << std::endl;
+            throw e;
+        }
     }
 
     KMarkDownMsg::KMarkDownMsg(json &&rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
+        try
+        {
+            rawMessage = std::make_unique<json>(rawMsg);
 
-        type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
-        code = rawMessage->at("code").get<string>();
-        guild_id = rawMessage->at("guild_id").get<string>();
-        channel_name = rawMessage->at("channel_name").get<string>();
-        mention.clear();
-        for(auto& i : rawMessage->at("mention").get<json>())
-        {
-            mention.push_back(std::move(i.get<string>()));
+            type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
+            code = rawMessage->at("code").get<string>();
+            guild_id = rawMessage->at("guild_id").get<string>();
+            channel_name = rawMessage->at("channel_name").get<string>();
+            mention.clear();
+            for(auto& i : rawMessage->at("mention").get<json>())
+            {
+                mention.push_back(std::move(i.get<string>()));
+            }
+            mention_all = rawMessage->at("mention_all").get<bool>();
+            mention_roles.clear();
+            for(auto& i : rawMessage->at("mention_roles").get<json>())
+            {
+                mention_roles.emplace_back(std::move(i.get<json>()));
+            }
+            mention_here = rawMessage->at("mention_here").get<bool>();
+            author = User(std::move(rawMessage->at("author").get<json>()));
+            kmarkdown = KMarkdown(std::move(rawMessage->at("kmarkdown").get<json>()));
         }
-        mention_all = rawMessage->at("mention_all").get<bool>();
-        mention_roles.clear();
-        for(auto& i : rawMessage->at("mention_roles").get<json>())
+        catch(const std::exception& e)
         {
-            mention_roles.emplace_back(std::move(i.get<json>()));
+            std::cout << "\t--In constructor of KMarkDownMsg: " << e.what() << std::endl;
+            throw e;
         }
-        mention_here = rawMessage->at("mention_here").get<bool>();
-        author = User(std::move(rawMessage->at("author").get<json>()));
-        kmarkdown = KMarkdown(std::move(rawMessage->at("kmarkdown").get<json>()));
     }
 
     CardMsg::CardMsg(json &&rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
+        try
+        {
+            rawMessage = std::make_unique<json>(rawMsg);
 
-        type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
-        code = rawMessage->at("code").get<string>();
-        guild_id = rawMessage->at("guild_id").get<string>();
-        channel_name = rawMessage->at("channel_name").get<string>();
-        mention.clear();
-        for(auto& i : rawMessage->at("mention").get<json>())
-        {
-            mention.push_back(std::move(i.get<string>()));
+            type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
+            code = rawMessage->at("code").get<string>();
+            guild_id = rawMessage->at("guild_id").get<string>();
+            channel_name = rawMessage->at("channel_name").get<string>();
+            mention.clear();
+            for(auto& i : rawMessage->at("mention").get<json>())
+            {
+                mention.push_back(std::move(i.get<string>()));
+            }
+            mention_all = rawMessage->at("mention_all").get<bool>();
+            mention_roles.clear();
+            for(auto& i : rawMessage->at("mention_roles").get<json>())
+            {
+                mention_roles.emplace_back(std::move(i.get<json>()));
+            }
+            mention_here = rawMessage->at("mention_here").get<bool>();
+            author = User(std::move(rawMessage->at("author").get<json>()));
         }
-        mention_all = rawMessage->at("mention_all").get<bool>();
-        mention_roles.clear();
-        for(auto& i : rawMessage->at("mention_roles").get<json>())
+        catch(const std::exception& e)
         {
-            mention_roles.emplace_back(std::move(i.get<json>()));
+            std::cout << "\t--In constructor of CardMsg: " << e.what() << std::endl;
+            throw e;
         }
-        mention_here = rawMessage->at("mention_here").get<bool>();
-        author = User(std::move(rawMessage->at("author").get<json>()));
     }
 
     ItemMsg::ItemMsg(json &&rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
+        try
+        {
+            rawMessage = std::make_unique<json>(rawMsg);
 
-        type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
+            type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
+        }
+        catch(const std::exception& e)
+        {
+            std::cout << "\t--In constructor of ItemMsg: " << e.what() << std::endl;
+            throw e;
+        }
     }
 
     SystemMsg::SystemMsg(json &&rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
+        try
+        {
+            rawMessage = std::make_unique<json>(rawMsg);
 
-        type = rawMessage->at("type").get<string>();
+            type = rawMessage->at("type").get<string>();
+        }
+        catch(const std::exception& e)
+        {
+            std::cout << "\t--In constructor of SystemMsg: " << e.what() << std::endl;
+            throw e;
+        }
     }
 }

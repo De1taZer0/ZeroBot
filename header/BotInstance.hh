@@ -68,8 +68,9 @@ namespace ZeroBot::Bot
         string gatewayAPI;
         string websocketUrl;
         string authorization;
+        string session_id;
 
-        hv::WebSocketClient wsCli;
+        std::shared_ptr<hv::WebSocketClient> wsCli;
 
         hv::EventLoopThreadPtr pingLoopThread;
         hv::EventLoopThreadPtr startLoopThread;

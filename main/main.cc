@@ -14,17 +14,17 @@ int main()
 
     bot.onEvent<Event::EventGroupMsg>([](const auto& msg)
     {
-        std::cout << "\\\\GroupMsg:" << msg.content;
+        std::cout << "\\\\\\\\GroupMsg:" << msg.content;
     });
 
     bot.onEvent<Event::EventPersonMsg>([](const auto& msg)
     {
-        std::cout << "\\\\PersonMsg:" << msg.content;
+        std::cout << "\\\\\\\\PersonMsg:" << msg.content;
     });
 
     bot.onEvent<Event::EventBroadcastMsg>([](const auto& msg)
     {
-        std::cout << "\\\\BroadcastMsg:" << msg.content;
+        std::cout << "\\\\\\\\BroadcastMsg:" << msg.content;
     });
 
     bot.run();

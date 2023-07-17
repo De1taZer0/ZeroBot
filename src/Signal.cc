@@ -2,6 +2,35 @@
 
 namespace ZeroBot::Signal
 {
+    std::ostream& operator << (std::ostream& o, Sign sign)
+    {
+        switch(sign)
+        {
+            case Sign::EVENT:
+                o << "EVENT";
+                break;
+            case Sign::HELLO:
+                o << "HELLO";
+                break;
+            case Sign::PING:
+                o << "PING";
+                break;
+            case Sign::PONG:
+                o << "PONG";
+                break;
+            case Sign::RESUME:
+                o << "RESUME";
+                break;
+            case Sign::RECONNECT:
+                o << "RECONNECT";
+                break;
+            case Sign::RESUME_ACK:
+                o << "RESUME_ACK";
+                break;
+        }
+        return o;
+    }
+
     auto SignalBase::construct(json&& rawMsg) -> unique_ptr<SignalBase>
     {
         try
@@ -26,7 +55,8 @@ namespace ZeroBot::Signal
         }
         catch(const std::exception& e)
         {
-            std::cout << "\t\tIn SignalBase::construct" << std::endl;
+            std::cout << "\t--In SignalBase::construct: " << e.what() << std::endl;
+            throw e;
         }
     }
 
@@ -38,12 +68,21 @@ namespace ZeroBot::Signal
 
     EventSignal::EventSignal(json&& rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
+        try
+        {
+            rawMessage = std::make_unique<json>(rawMsg);
+        }
+        catch(const std::exception& e)
+        {
+            std::cout << "Error occurred when processing message: ";
+            std::cout << "\n\t--In constructor of EventSignal" << e.what() << std::endl;
+            throw e;
+        }
     }
 
     auto EventSignal::getType() const noexcept -> Sign
     {
-        return Sign::PING;
+        return Sign::EVENT;
     }
 
 
@@ -55,9 +94,8 @@ namespace ZeroBot::Signal
         }
         catch(const std::exception& e)
         {
-            std::cout << "Error occurred when processing message: " << rawMsg << std::endl;
-            std::cout << "\t"  << e.what() << std::endl;
-            std::cout << "\t\tIn HelloSignal::HelloSignal" << std::endl;
+            std::cout << "Error occurred when processing message: ";
+            std::cout << "\n\t--In constructor of HelloSignal" << e.what() << std::endl;
             throw e;
         }
     }
@@ -70,13 +108,21 @@ namespace ZeroBot::Signal
 
     PingSignal::PingSignal(json&& rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
+        try
+        {
+            rawMessage = std::make_unique<json>(rawMsg);
+        }
+        catch(const std::exception& e)
+        {
+            std::cout << "Error occurred when processing message: ";
+            std::cout << "\n\t--In constructor of PingSignal" << e.what() << std::endl;
+            throw e;
+        }
     }
 
     auto PingSignal::rawString(const int& sn) -> string
     {
-        return json{ { "s", static_cast<int>(Sign::PING) },
-                     { "sn", sn } }.dump();
+        return nlohmann::to_string(json{ { "s", static_cast<int>(Sign::PING) },{ "sn", sn } });
     }
 
     auto PingSignal::getType() const noexcept -> Sign
@@ -87,7 +133,16 @@ namespace ZeroBot::Signal
 
     PongSignal::PongSignal(json&& rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
+        try
+        {
+            rawMessage = std::make_unique<json>(rawMsg);
+        }
+        catch(const std::exception& e)
+        {
+            std::cout << "Error occurred when processing message: ";
+            std::cout << "\n\t--In constructor of PongSignal: " << e.what() << std::endl;
+            throw e;
+        }
     }
 
     auto PongSignal::getType() const noexcept -> Sign
@@ -98,7 +153,16 @@ namespace ZeroBot::Signal
 
     ResumeSignal::ResumeSignal(json&& rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
+        try
+        {
+            rawMessage = std::make_unique<json>(rawMsg);
+        }
+        catch(const std::exception& e)
+        {
+            std::cout << "Error occurred when processing message: ";
+            std::cout << "\n\t--In constructor of ResumeSignal: " << e.what() << std::endl;
+            throw e;
+        }
     }
 
     auto ResumeSignal::getType() const noexcept -> Sign
@@ -109,13 +173,21 @@ namespace ZeroBot::Signal
 
     ReconnectSignal::ReconnectSignal(json&& rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
+        try
+        {
+            rawMessage = std::make_unique<json>(rawMsg);
+        }
+        catch(const std::exception& e)
+        {
+            std::cout << "Error occurred when processing message: ";
+            std::cout << "\n\t--In constructor of ReconnectSignal: " << e.what() << std::endl;
+            throw e;
+        }
     }
 
     auto ReconnectSignal::rawString(const int &sn) -> string
     {
-        return json{ { "s", static_cast<int>(Sign::RECONNECT) },
-                     { "sn", sn } }.dump();
+        return nlohmann::to_string(json{ { "s", static_cast<int>(Sign::RECONNECT) },{ "sn", sn } });
     }
 
     auto ReconnectSignal::getType() const noexcept -> Sign
@@ -126,7 +198,16 @@ namespace ZeroBot::Signal
 
     ResumeAckSignal::ResumeAckSignal(json&& rawMsg)
     {
-        rawMessage = std::make_unique<json>(rawMsg);
+        try
+        {
+            rawMessage = std::make_unique<json>(rawMsg);
+        }
+        catch(const std::exception& e)
+        {
+            std::cout << "Error occurred when processing message: ";
+            std::cout << "\n\t--In constructor of ResumeAckSignal: " << e.what() << std::endl;
+            throw e;
+        }
     }
 
     auto ResumeAckSignal::getType() const noexcept -> Sign
