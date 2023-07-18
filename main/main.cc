@@ -2,9 +2,13 @@
 #include "Event.hh"
 #include "BotInstance.hh"
 
+const std::string self_id = "2946684318";
+
 int main()
 {
     using namespace ZeroBot;
+
+    using string = std::string;
 
     logger_set_level(hlog, LOG_LEVEL_DEBUG);
 
@@ -12,9 +16,15 @@ int main()
 
     ZeroBot::Bot::BotInstance bot;
 
-    bot.onEvent<Event::EventGroupMsg>([](const auto& msg)
+    bot.onEvent<Event::EventGroupMsg>([&bot](const auto& msg)
     {
-        std::cout << "\\\\\\\\GroupMsg:" << msg.content;
+        if(msg.author_id != self_id)
+        {
+            if(msg.content.find("/echo") == 0)
+            {
+                bot.sendGroupMsg(msg.target_id, msg.content);
+            }
+        }
     });
 
     bot.onEvent<Event::EventPersonMsg>([](const auto& msg)
