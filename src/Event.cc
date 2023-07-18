@@ -72,6 +72,12 @@ namespace ZeroBot::Event
             rawMessage = std::make_unique<json>(rawMsg.at("d").get<json>());
 
             type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
+            target_id = rawMessage->at("target_id").get<string>();
+            author_id = rawMessage->at("author_id").get<string>();
+            content = rawMessage->at("content").get<string>();
+            msg_id = rawMessage->at("msg_id").get<string>();
+            msg_timestamp = rawMessage->at("msg_timestamp").get<int>();
+            nonce = rawMessage->at("nonce").get<string>();
 
             switch(type)
             {
@@ -129,7 +135,13 @@ namespace ZeroBot::Event
 
             rawMessage = std::make_unique<json>(rawMsg.at("d").get<json>());
 
-            type = Msg_Type(rawMessage->at("type").get<int>());
+            type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
+            target_id = rawMessage->at("target_id").get<string>();
+            author_id = rawMessage->at("author_id").get<string>();
+            content = rawMessage->at("content").get<string>();
+            msg_id = rawMessage->at("msg_id").get<string>();
+            msg_timestamp = rawMessage->at("msg_timestamp").get<int>();
+            nonce = rawMessage->at("nonce").get<string>();
 
             switch(type)
             {
@@ -187,7 +199,13 @@ namespace ZeroBot::Event
 
             rawMessage = std::make_unique<json>(rawMsg.at("d").get<json>());
 
-            type = Msg_Type(rawMessage->at("type").get<int>());
+            type = static_cast<Msg_Type>(rawMessage->at("type").get<int>());
+            target_id = rawMessage->at("target_id").get<string>();
+            author_id = rawMessage->at("author_id").get<string>();
+            content = rawMessage->at("content").get<string>();
+            msg_id = rawMessage->at("msg_id").get<string>();
+            msg_timestamp = rawMessage->at("msg_timestamp").get<int>();
+            nonce = rawMessage->at("nonce").get<string>();
 
             switch(type)
             {

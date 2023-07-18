@@ -18,7 +18,7 @@ set(INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src")
 include_directories(include header)
 link_directories(lib)
 
-file(GLOB SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/*.cc")
+file(GLOB_RECURSE SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/*.cc")
 
 add_executable(${PROJECT_NAME} main/main.cc ${SOURCE_FILES})
 
