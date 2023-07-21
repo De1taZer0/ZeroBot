@@ -101,9 +101,6 @@ namespace ZeroBot::Bot
 
         void run();
 
-        auto sendGroupMsg(const int& type, const string& target_id, const string& content, const string& quote, const string& temp_target_id) -> std::pair<string, int>;
-
-        auto sendGroupMsg(const string& target_id, const string& content) -> std::pair<string, int>;
     };
 
     namespace _export

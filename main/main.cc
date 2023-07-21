@@ -1,5 +1,6 @@
 #include <iostream>
 #include "BotInstance.hh"
+#include "Transmitter.hh"
 #include "plugin/Echo.hh"
 
 const std::string self_id = "2946684318";
@@ -14,13 +15,17 @@ int main()
 
     ZeroBot::Bot::BotInstance bot;
 
-    bot.onEvent<Event::EventGroupMsg>([&bot](const auto& msg)
+    ZeroBot::Transmit::Transmitter::init();
+
+    ZeroBot::Transmit::Transmitter transmitter;
+
+    bot.onEvent<Event::EventGroupMsg>([&transmitter](const auto& msg)
     {
         if(msg.author_id != self_id)
         {
             if(msg.content.find("/echo") == 0)
             {
-                bot.sendGroupMsg(msg.target_id, msg.content.substr(6,msg.content.length() - 6));
+                transmitter.sendGroupMsg(msg.target_id, msg.content.substr(6,msg.content.length() - 6));
             }
         }
     });
