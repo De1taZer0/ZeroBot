@@ -19,7 +19,7 @@ namespace ZeroBot::Plugin
         virtual auto update(const EventBase& event) -> bool = 0;
 
         PluginBase() = default;
-        virtual ~PluginBase() = 0;
+        virtual ~PluginBase() = default;
     };
 }
 

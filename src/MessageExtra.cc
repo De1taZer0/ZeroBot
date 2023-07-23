@@ -75,10 +75,7 @@ namespace ZeroBot::MessageExtra
 //            code = rawMessage->at("code").get<string>();
             guild_id = rawMessage->at("guild_id").get<string>();
             attachments.clear();
-            for(auto& i : rawMessage->at("attachments").get<json>())
-            {
-                attachments.emplace_back(std::move(i.get<json>()));
-            }
+            attachments.emplace_back(std::move(rawMessage->at("attachments").get<json>()));
             author = User(std::move(rawMessage->at("author").get<json>()));
         }
         catch(const std::exception& e)

@@ -57,7 +57,7 @@ namespace ZeroBot::Object
             type = rawMsg.at("type").get<string>();
             url = rawMsg.at("url").get<string>();
             name = rawMsg.at("name").get<string>();
-            size = rawMsg.at("size").get<int>();
+//            size = rawMsg.at("size").get<int>();
         }
         catch(const std::exception& e)
         {

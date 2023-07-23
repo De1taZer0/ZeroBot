@@ -25,7 +25,7 @@ namespace ZeroBot::Transmit
     class Transmitter
     {
     private:
-        struct
+        inline static struct
         {
             int limit; ///< "X-Rate-Limit-Limit"
             int remaining; ///< "X-Rate-Limit-Remaining"
@@ -34,16 +34,16 @@ namespace ZeroBot::Transmit
             int global; ///< "X-Rate-Limit-Global"
         }rateLimit;
 
-        static string authorization;
+        inline static string authorization;
 
-        auto sendHttpRequest(HttpRequestPtr req) -> json;
+        static auto sendHttpRequest(HttpRequestPtr req) -> json;
 
     public:
         Transmitter() = default;
 
         static auto init() -> void;
 
-        auto sendGroupMsg(crstring target_id, crstring content, ocrint type = std::nullopt, ocrstring quote = std::nullopt, ocrstring temp_target_id = std::nullopt) -> optional<std::pair<string, int>>;
+        static auto sendGroupMsg(crstring target_id, crstring content, ocrint type = std::nullopt, ocrstring quote = std::nullopt, ocrstring temp_target_id = std::nullopt) -> optional<std::pair<string, int>>;
     };
 }
 

@@ -10,6 +10,8 @@
 
 namespace ZeroBot::Plugin
 {
+    using Transmit::Transmitter;
+
     class PluginEcho : public PluginBase
     {
     public:
