@@ -73,12 +73,15 @@ struct hevent_s {
     HEVENT_FIELDS
 };
 
+#define hevent_set_id(ev, id)           ((hevent_t*)(ev))->event_id = id
+#define hevent_set_cb(ev, cb)           ((hevent_t*)(ev))->cb = cb
 #define hevent_set_priority(ev, prio)   ((hevent_t*)(ev))->priority = prio
 #define hevent_set_userdata(ev, udata)  ((hevent_t*)(ev))->userdata = (void*)udata
 
 #define hevent_loop(ev)         (((hevent_t*)(ev))->loop)
 #define hevent_type(ev)         (((hevent_t*)(ev))->event_type)
 #define hevent_id(ev)           (((hevent_t*)(ev))->event_id)
+#define hevent_cb(ev)           (((hevent_t*)(ev))->cb)
 #define hevent_priority(ev)     (((hevent_t*)(ev))->priority)
 #define hevent_userdata(ev)     (((hevent_t*)(ev))->userdata)
 
@@ -112,7 +115,7 @@ typedef enum {
     HIO_CLIENT_SIDE  = 1,
 } hio_side_e;
 
-#define HIO_DEFAULT_CONNECT_TIMEOUT     5000    // ms
+#define HIO_DEFAULT_CONNECT_TIMEOUT     10000   // ms
 #define HIO_DEFAULT_CLOSE_TIMEOUT       60000   // ms
 #define HIO_DEFAULT_KEEPALIVE_TIMEOUT   75000   // ms
 #define HIO_DEFAULT_HEARTBEAT_INTERVAL  10000   // ms
@@ -128,6 +131,8 @@ HV_EXPORT hloop_t* hloop_new(int flags DEFAULT(HLOOP_FLAG_AUTO_FREE));
 // WARN: Forbid to call hloop_free if HLOOP_FLAG_AUTO_FREE set.
 HV_EXPORT void hloop_free(hloop_t** pp);
 
+HV_EXPORT int hloop_process_events(hloop_t* loop, int timeout_ms DEFAULT(0));
+
 // NOTE: when no active events, loop will quit if HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS set.
 HV_EXPORT int hloop_run(hloop_t* loop);
 // NOTE: hloop_stop called in loop-thread just set flag to quit in next loop,
@@ -140,14 +145,26 @@ HV_EXPORT int hloop_wakeup(hloop_t* loop);
 HV_EXPORT hloop_status_e hloop_status(hloop_t* loop);
 
 HV_EXPORT void     hloop_update_time(hloop_t* loop);
-HV_EXPORT uint64_t hloop_now(hloop_t* loop);          // s
-HV_EXPORT uint64_t hloop_now_ms(hloop_t* loop);       // ms
-HV_EXPORT uint64_t hloop_now_hrtime(hloop_t* loop);   // us
-#define hloop_now_us hloop_now_hrtime
+HV_EXPORT uint64_t hloop_now(hloop_t* loop);        // s
+HV_EXPORT uint64_t hloop_now_ms(hloop_t* loop);     // ms
+HV_EXPORT uint64_t hloop_now_us(hloop_t* loop);     // us
+HV_EXPORT uint64_t hloop_now_hrtime(hloop_t* loop); // us
+
+// export some hloop's members
 // @return pid of hloop_run
 HV_EXPORT long hloop_pid(hloop_t* loop);
 // @return tid of hloop_run
 HV_EXPORT long hloop_tid(hloop_t* loop);
+// @return count of loop
+HV_EXPORT uint64_t hloop_count(hloop_t* loop);
+// @return number of ios
+HV_EXPORT uint32_t hloop_nios(hloop_t* loop);
+// @return number of timers
+HV_EXPORT uint32_t hloop_ntimers(hloop_t* loop);
+// @return number of idles
+HV_EXPORT uint32_t hloop_nidles(hloop_t* loop);
+// @return number of active events
+HV_EXPORT uint32_t hloop_nactives(hloop_t* loop);
 
 // userdata
 HV_EXPORT void  hloop_set_userdata(hloop_t* loop, void* userdata);
@@ -170,8 +187,7 @@ HV_EXPORT hidle_t* hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat DEFAULT
 HV_EXPORT void     hidle_del(hidle_t* idle);
 
 // timer
-// @param timeout: unit(ms)
-HV_EXPORT htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t repeat DEFAULT(INFINITE));
+HV_EXPORT htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout_ms, uint32_t repeat DEFAULT(INFINITE));
 /*
  * minute   hour    day     week    month       cb
  * 0~59     0~23    1~31    0~6     1~12
@@ -187,7 +203,7 @@ HV_EXPORT htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
                         int8_t week   DEFAULT(-1), int8_t month DEFAULT(-1), uint32_t repeat DEFAULT(INFINITE));
 
 HV_EXPORT void htimer_del(htimer_t* timer);
-HV_EXPORT void htimer_reset(htimer_t* timer);
+HV_EXPORT void htimer_reset(htimer_t* timer, uint32_t timeout_ms DEFAULT(0));
 
 // io
 //-----------------------low-level apis---------------------------------------
@@ -256,9 +272,25 @@ HV_EXPORT struct sockaddr* hio_peeraddr (hio_t* io);
 HV_EXPORT void hio_set_context(hio_t* io, void* ctx);
 HV_EXPORT void* hio_context(hio_t* io);
 HV_EXPORT bool hio_is_opened(hio_t* io);
+HV_EXPORT bool hio_is_connected(hio_t* io);
 HV_EXPORT bool hio_is_closed(hio_t* io);
-HV_EXPORT size_t hio_read_bufsize(hio_t* io);
-HV_EXPORT size_t hio_write_bufsize(hio_t* io);
+
+// iobuf
+// #include "hbuf.h"
+typedef struct fifo_buf_s hio_readbuf_t;
+// NOTE: One loop per thread, one readbuf per loop.
+// But you can pass in your own readbuf instead of the default readbuf to avoid memcopy.
+HV_EXPORT void hio_set_readbuf(hio_t* io, void* buf, size_t len);
+HV_EXPORT hio_readbuf_t* hio_get_readbuf(hio_t* io);
+HV_EXPORT void hio_set_max_read_bufsize (hio_t* io, uint32_t size);
+HV_EXPORT void hio_set_max_write_bufsize(hio_t* io, uint32_t size);
+// NOTE: hio_write is non-blocking, so there is a write queue inside hio_t to cache unwritten data and wait for writable.
+// @return current buffer size of write queue.
+HV_EXPORT size_t   hio_write_bufsize(hio_t* io);
+#define hio_write_is_complete(io) (hio_write_bufsize(io) == 0)
+
+HV_EXPORT uint64_t hio_last_read_time(hio_t* io);   // ms
+HV_EXPORT uint64_t hio_last_write_time(hio_t* io);  // ms
 
 // set callbacks
 HV_EXPORT void hio_setcb_accept   (hio_t* io, haccept_cb  accept_cb);
@@ -273,19 +305,27 @@ HV_EXPORT hread_cb    hio_getcb_read(hio_t* io);
 HV_EXPORT hwrite_cb   hio_getcb_write(hio_t* io);
 HV_EXPORT hclose_cb   hio_getcb_close(hio_t* io);
 
-// some useful settings
 // Enable SSL/TLS is so easy :)
 HV_EXPORT int  hio_enable_ssl(hio_t* io);
 HV_EXPORT bool hio_is_ssl(hio_t* io);
-HV_EXPORT hssl_t hio_get_ssl(hio_t* io);
-HV_EXPORT int  hio_set_ssl(hio_t* io, hssl_t ssl);
-// NOTE: One loop per thread, one readbuf per loop.
-// But you can pass in your own readbuf instead of the default readbuf to avoid memcopy.
-HV_EXPORT void hio_set_readbuf(hio_t* io, void* buf, size_t len);
+HV_EXPORT int  hio_set_ssl    (hio_t* io, hssl_t ssl);
+HV_EXPORT int  hio_set_ssl_ctx(hio_t* io, hssl_ctx_t ssl_ctx);
+// hssl_ctx_new(opt) -> hio_set_ssl_ctx
+HV_EXPORT int  hio_new_ssl_ctx(hio_t* io, hssl_ctx_opt_t* opt);
+HV_EXPORT hssl_t     hio_get_ssl(hio_t* io);
+HV_EXPORT hssl_ctx_t hio_get_ssl_ctx(hio_t* io);
+// for hssl_set_sni_hostname
+HV_EXPORT int         hio_set_hostname(hio_t* io, const char* hostname);
+HV_EXPORT const char* hio_get_hostname(hio_t* io);
+
 // connect timeout => hclose_cb
 HV_EXPORT void hio_set_connect_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CONNECT_TIMEOUT));
 // close timeout => hclose_cb
 HV_EXPORT void hio_set_close_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CLOSE_TIMEOUT));
+// read timeout => hclose_cb
+HV_EXPORT void hio_set_read_timeout(hio_t* io, int timeout_ms);
+// write timeout => hclose_cb
+HV_EXPORT void hio_set_write_timeout(hio_t* io, int timeout_ms);
 // keepalive timeout => hclose_cb
 HV_EXPORT void hio_set_keepalive_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_KEEPALIVE_TIMEOUT));
 /*
@@ -302,18 +342,32 @@ HV_EXPORT void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_
 // Nonblocking, poll IO events in the loop to call corresponding callback.
 // hio_add(io, HV_READ) => accept => haccept_cb
 HV_EXPORT int hio_accept (hio_t* io);
+
 // connect => hio_add(io, HV_WRITE) => hconnect_cb
 HV_EXPORT int hio_connect(hio_t* io);
+
 // hio_add(io, HV_READ) => read => hread_cb
 HV_EXPORT int hio_read   (hio_t* io);
 #define hio_read_start(io) hio_read(io)
 #define hio_read_stop(io)  hio_del(io, HV_READ)
+
 // hio_read_start => hread_cb => hio_read_stop
 HV_EXPORT int hio_read_once (hio_t* io);
-HV_EXPORT int hio_read_until(hio_t* io, int len);
+// hio_read_once => hread_cb(len)
+HV_EXPORT int hio_read_until_length(hio_t* io, unsigned int len);
+// hio_read_once => hread_cb(...delim)
+HV_EXPORT int hio_read_until_delim (hio_t* io, unsigned char delim);
+HV_EXPORT int hio_read_remain(hio_t* io);
+// @see examples/tinyhttpd.c examples/tinyproxyd.c
+#define hio_readline(io)        hio_read_until_delim(io, '\n')
+#define hio_readstring(io)      hio_read_until_delim(io, '\0')
+#define hio_readbytes(io, len)  hio_read_until_length(io, len)
+#define hio_read_until(io, len) hio_read_until_length(io, len)
+
 // NOTE: hio_write is thread-safe, locked by recursive_mutex, allow to be called by other threads.
 // hio_try_write => hio_add(io, HV_WRITE) => write => hwrite_cb
 HV_EXPORT int hio_write  (hio_t* io, const void* buf, size_t len);
+
 // NOTE: hio_close is thread-safe, hio_close_async will be called actually in other thread.
 // hio_del(io, HV_RDWR) => close => hclose_cb
 HV_EXPORT int hio_close  (hio_t* io);
@@ -361,17 +415,17 @@ HV_EXPORT hio_t* hio_create_socket(hloop_t* loop, const char* host, int port,
 // @see examples/tcp_echo_server.c
 HV_EXPORT hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
 
-// @tcp_client: hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_connect
+// @tcp_client: hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_setcb_close -> hio_connect
 // @see examples/nc.c
-HV_EXPORT hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
+HV_EXPORT hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb);
 
 // @ssl_server: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_SERVER_SIDE) -> hio_setcb_accept -> hio_accept
 // @see examples/tcp_echo_server.c => #define TEST_SSL 1
 HV_EXPORT hio_t* hloop_create_ssl_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
 
-// @ssl_client: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_connect
+// @ssl_client: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_setcb_close -> hio_connect
 // @see examples/nc.c => #define TEST_SSL 1
-HV_EXPORT hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
+HV_EXPORT hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb);
 
 // @udp_server: hio_create_socket(loop, host, port, HIO_TYPE_UDP, HIO_SERVER_SIDE)
 // @see examples/udp_echo_server.c
@@ -385,6 +439,8 @@ HV_EXPORT hio_t* hloop_create_udp_client (hloop_t* loop, const char* host, int p
 // hio_read(io)
 // hio_read(io->upstream_io)
 HV_EXPORT void   hio_read_upstream(hio_t* io);
+// on_write(io) -> hio_write_is_complete(io) -> hio_read(io->upstream_io)
+HV_EXPORT void   hio_read_upstream_on_write_complete(hio_t* io, const void* buf, int writebytes);
 // hio_write(io->upstream_io, buf, bytes)
 HV_EXPORT void   hio_write_upstream(hio_t* io, void* buf, int bytes);
 // hio_close(io->upstream_io)
@@ -392,26 +448,26 @@ HV_EXPORT void   hio_close_upstream(hio_t* io);
 
 // io1->upstream_io = io2;
 // io2->upstream_io = io1;
-// hio_setcb_read(io1, hio_write_upstream);
-// hio_setcb_read(io2, hio_write_upstream);
+// @see examples/socks5_proxy_server.c
 HV_EXPORT void   hio_setup_upstream(hio_t* io1, hio_t* io2);
 
 // @return io->upstream_io
 HV_EXPORT hio_t* hio_get_upstream(hio_t* io);
 
-// @tcp_upstream: hio_create -> hio_setup_upstream -> hio_setcb_close(hio_close_upstream) -> hconnect -> on_connect -> hio_read_upstream
+// @tcp_upstream: hio_create_socket -> hio_setup_upstream -> hio_connect -> on_connect -> hio_read_upstream
 // @return upstream_io
-// @see examples/tcp_proxy_server
+// @see examples/tcp_proxy_server.c
 HV_EXPORT hio_t* hio_setup_tcp_upstream(hio_t* io, const char* host, int port, int ssl DEFAULT(0));
 #define hio_setup_ssl_upstream(io, host, port) hio_setup_tcp_upstream(io, host, port, 1)
 
-// @udp_upstream: hio_create -> hio_setup_upstream -> hio_read_upstream
+// @udp_upstream: hio_create_socket -> hio_setup_upstream -> hio_read_upstream
 // @return upstream_io
-// @see examples/udp_proxy_server
+// @see examples/udp_proxy_server.c
 HV_EXPORT hio_t* hio_setup_udp_upstream(hio_t* io, const char* host, int port);
 
 //-----------------unpack---------------------------------------------
 typedef enum {
+    UNPACK_MODE_NONE        = 0,
     UNPACK_BY_FIXED_LENGTH  = 1,    // Not recommended
     UNPACK_BY_DELIMITER     = 2,    // Suitable for text protocol
     UNPACK_BY_LENGTH_FIELD  = 3,    // Suitable for binary protocol
@@ -442,17 +498,20 @@ typedef struct unpack_setting_s {
             unsigned char   delimiter[PACKAGE_MAX_DELIMITER_BYTES];
             unsigned short  delimiter_bytes;
         };
-        // UNPACK_BY_LENGTH_FIELD
-        /* package_len = head_len + body_len + length_adjustment
+        /*
+         * UNPACK_BY_LENGTH_FIELD
+         *
+         * package_len = head_len + body_len + length_adjustment
          *
          * if (length_field_coding == ENCODE_BY_VARINT) head_len = body_offset + varint_bytes - length_field_bytes;
          * else head_len = body_offset;
          *
-         * body_len calc by length_field
+         * length_field stores body length, exclude head length,
+         * if length_field = head_len + body_len, then length_adjustment should be set to -head_len.
          *
          */
         struct {
-            unsigned short  body_offset;
+            unsigned short  body_offset; // Equal to head length usually
             unsigned short  length_field_offset;
             unsigned short  length_field_bytes;
                      short  length_adjustment;
@@ -476,6 +535,13 @@ typedef struct unpack_setting_s {
 #endif
 } unpack_setting_t;
 
+/*
+ * @see examples/jsonrpc examples/protorpc
+ *
+ * NOTE: unpack_setting_t of multiple IOs of the same function also are same,
+ *       so only the pointer of unpack_setting_t is stored in hio_t,
+ *       the life time of unpack_setting_t shoud be guaranteed by caller.
+ */
 HV_EXPORT void hio_set_unpack(hio_t* io, unpack_setting_t* setting);
 HV_EXPORT void hio_unset_unpack(hio_t* io);
 
@@ -507,6 +573,87 @@ unpack_setting_t grpc_unpack_setting = {
     .length_field_coding = ENCODE_BY_BIG_ENDIAN,
 };
 */
+
+//-----------------reconnect----------------------------------------
+#define DEFAULT_RECONNECT_MIN_DELAY     1000    // ms
+#define DEFAULT_RECONNECT_MAX_DELAY     60000   // ms
+#define DEFAULT_RECONNECT_DELAY_POLICY  2       // exponential
+#define DEFAULT_RECONNECT_MAX_RETRY_CNT INFINITE
+typedef struct reconn_setting_s {
+    uint32_t min_delay;  // ms
+    uint32_t max_delay;  // ms
+    uint32_t cur_delay;  // ms
+    /*
+     * @delay_policy
+     * 0: fixed
+     * min_delay=3s => 3,3,3...
+     * 1: linear
+     * min_delay=3s max_delay=10s => 3,6,9,10,10...
+     * other: exponential
+     * min_delay=3s max_delay=60s delay_policy=2 => 3,6,12,24,48,60,60...
+     */
+    uint32_t delay_policy;
+    uint32_t max_retry_cnt;
+    uint32_t cur_retry_cnt;
+
+#ifdef __cplusplus
+    reconn_setting_s() {
+        min_delay = DEFAULT_RECONNECT_MIN_DELAY;
+        max_delay = DEFAULT_RECONNECT_MAX_DELAY;
+        cur_delay = 0;
+        // 1,2,4,8,16,32,60,60...
+        delay_policy = DEFAULT_RECONNECT_DELAY_POLICY;
+        max_retry_cnt = DEFAULT_RECONNECT_MAX_RETRY_CNT;
+        cur_retry_cnt = 0;
+    }
+#endif
+} reconn_setting_t;
+
+HV_INLINE void reconn_setting_init(reconn_setting_t* reconn) {
+    reconn->min_delay = DEFAULT_RECONNECT_MIN_DELAY;
+    reconn->max_delay = DEFAULT_RECONNECT_MAX_DELAY;
+    reconn->cur_delay = 0;
+    // 1,2,4,8,16,32,60,60...
+    reconn->delay_policy = DEFAULT_RECONNECT_DELAY_POLICY;
+    reconn->max_retry_cnt = DEFAULT_RECONNECT_MAX_RETRY_CNT;
+    reconn->cur_retry_cnt = 0;
+}
+
+HV_INLINE void reconn_setting_reset(reconn_setting_t* reconn) {
+    reconn->cur_delay = 0;
+    reconn->cur_retry_cnt = 0;
+}
+
+HV_INLINE bool reconn_setting_can_retry(reconn_setting_t* reconn) {
+    ++reconn->cur_retry_cnt;
+    return reconn->max_retry_cnt == INFINITE ||
+           reconn->cur_retry_cnt < reconn->max_retry_cnt;
+}
+
+HV_INLINE uint32_t reconn_setting_calc_delay(reconn_setting_t* reconn) {
+    if (reconn->delay_policy == 0) {
+        // fixed
+        reconn->cur_delay = reconn->min_delay;
+    } else if (reconn->delay_policy == 1) {
+        // linear
+        reconn->cur_delay += reconn->min_delay;
+    } else {
+        // exponential
+        reconn->cur_delay *= reconn->delay_policy;
+    }
+    reconn->cur_delay = MAX(reconn->cur_delay, reconn->min_delay);
+    reconn->cur_delay = MIN(reconn->cur_delay, reconn->max_delay);
+    return reconn->cur_delay;
+}
+
+//-----------------LoadBalance-------------------------------------
+typedef enum {
+    LB_RoundRobin,
+    LB_Random,
+    LB_LeastConnections,
+    LB_IpHash,
+    LB_UrlHash,
+} load_balance_e;
 
 //-----------------rudp---------------------------------------------
 #if WITH_KCP
@@ -557,6 +704,39 @@ typedef struct kcp_setting_s {
 #endif
 } kcp_setting_t;
 
+HV_INLINE void kcp_setting_init_with_normal_mode(kcp_setting_t* setting) {
+    memset(setting, 0, sizeof(kcp_setting_t));
+    setting->nodelay = 0;
+    setting->interval = 40;
+    setting->fastresend = 0;
+    setting->nocwnd = 0;
+}
+
+HV_INLINE void kcp_setting_init_with_fast_mode(kcp_setting_t* setting) {
+    memset(setting, 0, sizeof(kcp_setting_t));
+    setting->nodelay = 0;
+    setting->interval = 30;
+    setting->fastresend = 2;
+    setting->nocwnd = 1;
+}
+
+HV_INLINE void kcp_setting_init_with_fast2_mode(kcp_setting_t* setting) {
+    memset(setting, 0, sizeof(kcp_setting_t));
+    setting->nodelay = 1;
+    setting->interval = 20;
+    setting->fastresend = 2;
+    setting->nocwnd = 1;
+}
+
+HV_INLINE void kcp_setting_init_with_fast3_mode(kcp_setting_t* setting) {
+    memset(setting, 0, sizeof(kcp_setting_t));
+    setting->nodelay = 1;
+    setting->interval = 10;
+    setting->fastresend = 2;
+    setting->nocwnd = 1;
+}
+
+// @see examples/udp_echo_server.c => #define TEST_KCP 1
 HV_EXPORT int hio_set_kcp(hio_t* io, kcp_setting_t* setting DEFAULT(NULL));
 #endif
 

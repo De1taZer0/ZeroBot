@@ -13,7 +13,7 @@
 #include <hv/json.hpp>
 #include <hv/requests.h>
 #include <hv/EventLoop.h>
-#include <hv/http_client.h>
+#include <hv/HttpClient.h>
 #include <hv/WebSocketClient.h>
 #include "Event.hh"
 #include "Signal.hh"
@@ -83,12 +83,6 @@ namespace ZeroBot::Bot
         priority_queue<unique_ptr<EventBase>> eventQueue;
 
         std::unordered_map<Event::Channel_Type, CallbackFuncType> onEventFuncMap;
-
-        int X_Rate_Limit_Limit;
-        int X_Rate_Limit_Remaining;
-        int X_Rate_Limit_Reset;
-        int X_Rate_Limit_Bucket;
-        int X_Rate_Limit_Global;
 
         [[nodiscard]] auto getGatewayUrl() -> bool;
 

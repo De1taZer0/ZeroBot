@@ -67,7 +67,9 @@ typedef struct option_s {
     int         arg_type;
 } option_t;
 
-HV_EXPORT int main_ctx_init(int argc, char** argv);
+HV_EXPORT int  main_ctx_init(int argc, char** argv);
+HV_EXPORT void main_ctx_free(void);
+
 // ls -a -l
 // ls -al
 // watch -n 10 ls
@@ -78,13 +80,13 @@ HV_EXPORT int parse_opt_long(int argc, char** argv, const option_t* long_options
 HV_EXPORT const char* get_arg(const char* key);
 HV_EXPORT const char* get_env(const char* key);
 
-#ifdef OS_UNIX
-HV_EXPORT void setproctitle(const char* title);
+#if defined(OS_UNIX) && !HAVE_SETPROCTITLE
+HV_EXPORT void setproctitle(const char* fmt, ...);
 #endif
 
 // pidfile
 HV_EXPORT int   create_pidfile();
-HV_EXPORT void  delete_pidfile();
+HV_EXPORT void  delete_pidfile(void);
 HV_EXPORT pid_t getpid_from_pidfile();
 
 // signal=[start,stop,restart,status,reload]

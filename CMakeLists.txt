@@ -9,7 +9,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf-8")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /utf-8")
 
 add_compile_definitions(HV_STATICLIB)
-add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MT>)
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MTd>)
 
 set(CMAKE_CXX_STANDARD 20)
 set(EXECUTABLE_OUTPUT_PATH "${PROJECT_SOURCE_DIR}/bin")

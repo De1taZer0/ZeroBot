@@ -16,11 +16,7 @@ public:
 
     EventLoopThread(EventLoopPtr loop = NULL) {
         setStatus(kInitializing);
-        if (loop) {
-            loop_ = loop;
-        } else {
-            loop_.reset(new EventLoop);
-        }
+        loop_ = loop ? loop : std::make_shared<EventLoop>();
         setStatus(kInitialized);
     }
 
@@ -60,6 +56,7 @@ public:
     }
 
     // @param wait_thread_started: if ture this method will block until loop_thread stopped.
+    // stop thread-safe
     void stop(bool wait_thread_stopped = false) {
         if (status() < kStarting || status() >= kStopping) return;
         setStatus(kStopping);

@@ -40,8 +40,12 @@
 #define le32toh(v) __builtin_bswap32(v)
 #define le64toh(v) __builtin_bswap64(v)
 #endif
-#else
+#elif HAVE_ENDIAN_H
 #include <endian.h>
+#elif HAVE_SYS_ENDIAN_H
+#include <sys/endian.h>
+#else
+#warning "Not found endian.h!"
 #endif
 
 #define PI8(p)      *(int8_t*)(p)
@@ -94,16 +98,26 @@
 #define PUSH_LE32(p, v) PU32(p) = htole32(v); p += 4
 #define PUSH_LE64(p, v) PU64(p) = htole64(v); p += 8
 
+// NOTE: NET_ENDIAN = BIG_ENDIAN
+#define POP8(p, v)      POP_BE8(p, v)
+#define POP16(p, v)     POP_BE16(p, v)
+#define POP32(p, v)     POP_BE32(p, v)
+#define POP64(p, v)     POP_BE64(p, v)
+#define POP_N(p, v, n)  memcpy(v, p, n); p += n
+
+#define PUSH8(p, v)     PUSH_BE8(p, v)
+#define PUSH16(p, v)    PUSH_BE16(p, v)
+#define PUSH32(p, v)    PUSH_BE32(p, v)
+#define PUSH64(p, v)    PUSH_BE64(p, v)
+#define PUSH_N(p, v, n) memcpy(p, v, n); p += n
+
 static inline int detect_endian() {
     union {
         char c;
         short s;
     } u;
     u.s = 0x1122;
-    if (u.c == 0x11) {
-        return BIG_ENDIAN;
-    }
-    return LITTLE_ENDIAN;
+    return u.c ==0x11 ? BIG_ENDIAN : LITTLE_ENDIAN;
 }
 
 #ifdef __cplusplus

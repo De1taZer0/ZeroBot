@@ -6,103 +6,134 @@
 #include "hlog.h"
 
 #include "EventLoopThread.h"
-#include "Callback.h"
 #include "Channel.h"
 
 namespace hv {
 
-struct ReconnectInfo {
-    uint32_t min_delay;  // ms
-    uint32_t max_delay;  // ms
-    uint32_t cur_delay;  // ms
-    /*
-     * @delay_policy
-     * 0: fixed
-     * min_delay=3s => 3,3,3...
-     * 1: linear
-     * min_delay=3s max_delay=10s => 3,6,9,10,10...
-     * other: exponential
-     * min_delay=3s max_delay=60s delay_policy=2 => 3,6,12,24,48,60,60...
-     */
-    uint32_t delay_policy;
-    uint32_t max_retry_cnt;
-    uint32_t cur_retry_cnt;
-
-    ReconnectInfo() {
-        min_delay = 1000;
-        max_delay = 60000;
-        cur_delay = 0;
-        // 1,2,4,8,16,32,60,60...
-        delay_policy = 2;
-        max_retry_cnt = INFINITE;
-        cur_retry_cnt = 0;
-    }
-};
-
 template<class TSocketChannel = SocketChannel>
-class TcpClientTmpl {
+class TcpClientEventLoopTmpl {
 public:
     typedef std::shared_ptr<TSocketChannel> TSocketChannelPtr;
 
-    TcpClientTmpl() {
+    TcpClientEventLoopTmpl(EventLoopPtr loop = NULL) {
+        loop_ = loop ? loop : std::make_shared<EventLoop>();
+        remote_port = 0;
+        connect_timeout = HIO_DEFAULT_CONNECT_TIMEOUT;
         tls = false;
-        connect_timeout = 5000;
-        enable_reconnect = false;
-        enable_unpack = false;
+        tls_setting = NULL;
+        reconn_setting = NULL;
+        unpack_setting = NULL;
     }
 
-    virtual ~TcpClientTmpl() {
+    virtual ~TcpClientEventLoopTmpl() {
+        HV_FREE(tls_setting);
+        HV_FREE(reconn_setting);
+        HV_FREE(unpack_setting);
     }
 
     const EventLoopPtr& loop() {
-        return loop_thread.loop();
+        return loop_;
     }
 
-    //@retval >=0 connfd, <0 error
-    int createsocket(int port, const char* host = "127.0.0.1") {
-        memset(&peeraddr, 0, sizeof(peeraddr));
-        int ret = sockaddr_set_ipport(&peeraddr, host, port);
+    // NOTE: By default, not bind local port. If necessary, you can call bind() after createsocket().
+    // @retval >=0 connfd, <0 error
+    int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
+        memset(&remote_addr, 0, sizeof(remote_addr));
+        int ret = sockaddr_set_ipport(&remote_addr, remote_host, remote_port);
         if (ret != 0) {
-            return -1;
+            return NABS(ret);
         }
-        return createsocket(&peeraddr.sa);
+        this->remote_host = remote_host;
+        this->remote_port = remote_port;
+        return createsocket(&remote_addr.sa);
     }
-    int createsocket(struct sockaddr* peeraddr) {
-        int connfd = socket(peeraddr->sa_family, SOCK_STREAM, 0);
-        // SOCKADDR_PRINT(peeraddr);
+
+    int createsocket(struct sockaddr* remote_addr) {
+        int connfd = ::socket(remote_addr->sa_family, SOCK_STREAM, 0);
+        // SOCKADDR_PRINT(remote_addr);
         if (connfd < 0) {
             perror("socket");
             return -2;
         }
 
-        hio_t* io = hio_get(loop_thread.hloop(), connfd);
+        hio_t* io = hio_get(loop_->loop(), connfd);
         assert(io != NULL);
-        hio_set_peeraddr(io, peeraddr, SOCKADDR_LEN(peeraddr));
+        hio_set_peeraddr(io, remote_addr, SOCKADDR_LEN(remote_addr));
         channel.reset(new TSocketChannel(io));
         return connfd;
     }
+
+    int bind(int local_port, const char* local_host = "0.0.0.0") {
+        sockaddr_u local_addr;
+        memset(&local_addr, 0, sizeof(local_addr));
+        int ret = sockaddr_set_ipport(&local_addr, local_host, local_port);
+        if (ret != 0) {
+            return NABS(ret);
+        }
+        return bind(&local_addr.sa);
+    }
+
+    int bind(struct sockaddr* local_addr) {
+        if (channel == NULL || channel->isClosed()) {
+            return -1;
+        }
+        int ret = ::bind(channel->fd(), local_addr, SOCKADDR_LEN(local_addr));
+        if (ret != 0) {
+            perror("bind");
+        }
+        return ret;
+    }
+
+    // closesocket thread-safe
     void closesocket() {
         if (channel) {
-            channel->close();
-            channel = NULL;
+            loop_->runInLoop([this](){
+                if (channel) {
+                    setReconnect(NULL);
+                    channel->close();
+                }
+            });
         }
     }
 
     int startConnect() {
-        assert(channel != NULL);
-        if (tls) {
-            channel->enableSSL();
+        if (channel == NULL || channel->isClosed()) {
+            int connfd = createsocket(&remote_addr.sa);
+            if (connfd < 0) {
+                hloge("createsocket %s:%d return %d!\n", remote_host.c_str(), remote_port, connfd);
+                return connfd;
+            }
+        }
+        if (channel == NULL || channel->status >= SocketChannel::CONNECTING) {
+            return -1;
         }
         if (connect_timeout) {
             channel->setConnectTimeout(connect_timeout);
         }
+        if (tls) {
+            channel->enableSSL();
+            if (tls_setting) {
+                int ret = channel->newSslCtx(tls_setting);
+                if (ret != 0) {
+                    hloge("new SSL_CTX failed: %d", ret);
+                    closesocket();
+                    return ret;
+                }
+            }
+            if (!is_ipaddr(remote_host.c_str())) {
+                channel->setHostname(remote_host);
+            }
+        }
         channel->onconnect = [this]() {
-            if (enable_unpack) {
-                channel->setUnpack(&unpack_setting);
+            if (unpack_setting) {
+                channel->setUnpack(unpack_setting);
             }
             channel->startRead();
             if (onConnection) {
                 onConnection(channel);
+            }
+            if (reconn_setting) {
+                reconn_setting_reset(reconn_setting);
             }
         };
         channel->onread = [this](Buffer* buf) {
@@ -120,46 +151,27 @@ public:
                 onConnection(channel);
             }
             // reconnect
-            if (enable_reconnect) {
+            if (reconn_setting) {
                 startReconnect();
-            } else {
-                channel = NULL;
-                // NOTE: channel should be destroyed,
-                // so in this lambda function, no code should be added below.
             }
         };
         return channel->startConnect();
     }
 
     int startReconnect() {
-        if (++reconnect_info.cur_retry_cnt > reconnect_info.max_retry_cnt) return 0;
-        if (reconnect_info.delay_policy == 0) {
-            // fixed
-            reconnect_info.cur_delay = reconnect_info.min_delay;
-        } else if (reconnect_info.delay_policy == 1) {
-            // linear
-            reconnect_info.cur_delay += reconnect_info.min_delay;
-        } else {
-            // exponential
-            reconnect_info.cur_delay *= reconnect_info.delay_policy;
-        }
-        reconnect_info.cur_delay = MAX(reconnect_info.cur_delay, reconnect_info.min_delay);
-        reconnect_info.cur_delay = MIN(reconnect_info.cur_delay, reconnect_info.max_delay);
-        loop_thread.loop()->setTimeout(reconnect_info.cur_delay, [this](TimerID timerID){
-            hlogi("reconnect... cnt=%d, delay=%d", reconnect_info.cur_retry_cnt, reconnect_info.cur_delay);
-            // printf("reconnect... cnt=%d, delay=%d\n", reconnect_info.cur_retry_cnt, reconnect_info.cur_delay);
-            createsocket(&peeraddr.sa);
+        if (!reconn_setting) return -1;
+        if (!reconn_setting_can_retry(reconn_setting)) return -2;
+        uint32_t delay = reconn_setting_calc_delay(reconn_setting);
+        hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
+        loop_->setTimeout(delay, [this](TimerID timerID){
             startConnect();
         });
         return 0;
     }
 
-    void start(bool wait_threads_started = true) {
-        loop_thread.start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
-    }
-    void stop(bool wait_threads_stopped = true) {
-        enable_reconnect = false;
-        loop_thread.stop(wait_threads_stopped);
+    // start thread-safe
+    void start() {
+        loop_->runInLoop(std::bind(&TcpClientEventLoopTmpl::startConnect, this));
     }
 
     bool isConnected() {
@@ -167,6 +179,7 @@ public:
         return channel->isConnected();
     }
 
+    // send thread-safe
     int send(const void* data, int size) {
         if (!isConnected()) return -1;
         return channel->write(data, size);
@@ -178,20 +191,15 @@ public:
         return send(str.data(), str.size());
     }
 
-    int withTLS(const char* cert_file = NULL, const char* key_file = NULL, bool verify_peer = false) {
-        if (cert_file) {
-            hssl_ctx_init_param_t param;
-            memset(&param, 0, sizeof(param));
-            param.crt_file = cert_file;
-            param.key_file = key_file;
-            param.verify_peer = verify_peer ? 1 : 0;
-            param.endpoint = HSSL_CLIENT;
-            if (hssl_ctx_init(&param) == NULL) {
-                fprintf(stderr, "hssl_ctx_init failed!\n");
-                return -1;
-            }
-        }
+    int withTLS(hssl_ctx_opt_t* opt = NULL) {
         tls = true;
+        if (opt) {
+            if (tls_setting == NULL) {
+                HV_ALLOC_SIZEOF(tls_setting);
+            }
+            opt->endpoint = HSSL_CLIENT;
+            *tls_setting = *opt;
+        }
         return 0;
     }
 
@@ -199,42 +207,91 @@ public:
         connect_timeout = ms;
     }
 
-    void setReconnect(ReconnectInfo* info) {
-        if (info) {
-            enable_reconnect = true;
-            reconnect_info = *info;
-        } else {
-            enable_reconnect = false;
+    void setReconnect(reconn_setting_t* setting) {
+        if (setting == NULL) {
+            HV_FREE(reconn_setting);
+            return;
         }
+        if (reconn_setting == NULL) {
+            HV_ALLOC_SIZEOF(reconn_setting);
+        }
+        *reconn_setting = *setting;
+    }
+    bool isReconnect() {
+        return reconn_setting && reconn_setting->cur_retry_cnt > 0;
     }
 
     void setUnpack(unpack_setting_t* setting) {
-        if (setting) {
-            enable_unpack = true;
-            unpack_setting = *setting;
-        } else {
-            enable_unpack = false;
+        if (setting == NULL) {
+            HV_FREE(unpack_setting);
+            return;
         }
+        if (unpack_setting == NULL) {
+            HV_ALLOC_SIZEOF(unpack_setting);
+        }
+        *unpack_setting = *setting;
     }
 
 public:
     TSocketChannelPtr       channel;
 
-    sockaddr_u              peeraddr;
-    bool                    tls;
+    std::string             remote_host;
+    int                     remote_port;
+    sockaddr_u              remote_addr;
     int                     connect_timeout;
-    bool                    enable_reconnect;
-    ReconnectInfo           reconnect_info;
-    bool                    enable_unpack;
-    unpack_setting_t        unpack_setting;
+    bool                    tls;
+    hssl_ctx_opt_t*         tls_setting;
+    reconn_setting_t*       reconn_setting;
+    unpack_setting_t*       unpack_setting;
 
     // Callback
     std::function<void(const TSocketChannelPtr&)>           onConnection;
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onMessage;
+    // NOTE: Use Channel::isWriteComplete in onWriteComplete callback to determine whether all data has been written.
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
 
 private:
-    EventLoopThread         loop_thread;
+    EventLoopPtr            loop_;
+};
+
+template<class TSocketChannel = SocketChannel>
+class TcpClientTmpl : private EventLoopThread, public TcpClientEventLoopTmpl<TSocketChannel> {
+public:
+    TcpClientTmpl(EventLoopPtr loop = NULL)
+        : EventLoopThread(loop)
+        , TcpClientEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
+        , is_loop_owner(loop == NULL)
+    {}
+    virtual ~TcpClientTmpl() {
+        stop(true);
+    }
+
+    const EventLoopPtr& loop() {
+        return EventLoopThread::loop();
+    }
+
+    // start thread-safe
+    void start(bool wait_threads_started = true) {
+        if (isRunning()) {
+            TcpClientEventLoopTmpl<TSocketChannel>::start();
+        } else {
+            EventLoopThread::start(wait_threads_started, [this]() {
+                TcpClientTmpl::startConnect();
+                return 0;
+            });
+        }
+    }
+
+    // stop thread-safe
+    void stop(bool wait_threads_stopped = true) {
+        TcpClientEventLoopTmpl<TSocketChannel>::closesocket();
+        if (is_loop_owner) {
+            EventLoopThread::stop(wait_threads_stopped);
+        }
+    }
+
+private:
+    bool is_loop_owner;
 };
 
 typedef TcpClientTmpl<SocketChannel> TcpClient;

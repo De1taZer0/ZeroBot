@@ -16,6 +16,9 @@
 
 namespace hv {
 
+HV_EXPORT extern std::string                        empty_string;
+HV_EXPORT extern std::map<std::string, std::string> empty_map;
+
 typedef std::vector<std::string> StringList;
 
 // std::map<std::string, std::string, StringCaseLess>

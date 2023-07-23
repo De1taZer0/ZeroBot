@@ -8,8 +8,8 @@
 
 #include <string>
 #include <unordered_map>
-#define CPPHTTPLIB_OPENSSL_SUPPORT
-#include <httplib/httplib.h>
+#include <hv/json.hpp>
+#include <hv/HttpClient.h>
 #include "Plugin.hh"
 
 const std::string apiKey = "0e89faf72ec6ea74f01bf07331d7a1b46c8469f3";

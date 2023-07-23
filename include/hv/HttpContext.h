@@ -13,11 +13,21 @@ struct HV_EXPORT HttpContext {
     HttpRequestPtr          request;
     HttpResponsePtr         response;
     HttpResponseWriterPtr   writer;
+    void*                   userdata;
+
+    HttpContext() {
+        service = NULL;
+        userdata = NULL;
+    }
 
     // HttpRequest aliases
     // return request->xxx
     std::string ip() {
         return request->client_addr.ip;
+    }
+
+    int port() {
+        return request->client_addr.port;
     }
 
     http_method method() {
@@ -32,6 +42,10 @@ struct HV_EXPORT HttpContext {
         return request->Path();
     }
 
+    std::string fullpath() {
+        return request->FullPath();
+    }
+
     std::string host() {
         return request->Host();
     }
@@ -40,16 +54,20 @@ struct HV_EXPORT HttpContext {
         return request->headers;
     }
 
-    std::string header(const char* key, const std::string& defvalue = "") {
+    std::string header(const char* key, const std::string& defvalue = hv::empty_string) {
         return request->GetHeader(key, defvalue);
     }
 
-    const QueryParams& params() {
+    const hv::QueryParams& params() {
         return request->query_params;
     }
 
-    std::string param(const char* key, const std::string& defvalue = "") {
+    std::string param(const char* key, const std::string& defvalue = hv::empty_string) {
         return request->GetParam(key, defvalue);
+    }
+
+    const HttpCookie& cookie(const char* name) {
+        return request->GetCookie(name);
     }
 
     int length() {
@@ -79,10 +97,10 @@ struct HV_EXPORT HttpContext {
     }
 
     // Content-Type: multipart/form-data
-    const MultiPart& form() {
+    const hv::MultiPart& form() {
         return request->GetForm();
     }
-    std::string form(const char* name, const std::string& defvalue = "") {
+    std::string form(const char* name, const std::string& defvalue = hv::empty_string) {
         return request->GetFormData(name, defvalue);
     }
 
@@ -90,7 +108,7 @@ struct HV_EXPORT HttpContext {
     const hv::KeyValue& urlencoded() {
         return request->GetUrlEncoded();
     }
-    std::string urlencoded(const char* key, const std::string& defvalue = "") {
+    std::string urlencoded(const char* key, const std::string& defvalue = hv::empty_string) {
         return request->GetUrlEncoded(key, defvalue);
     }
 
@@ -99,7 +117,7 @@ struct HV_EXPORT HttpContext {
     T get(const char* key, T defvalue = 0) {
         return request->Get(key, defvalue);
     }
-    std::string get(const char* key, const std::string& defvalue = "") {
+    std::string get(const char* key, const std::string& defvalue = hv::empty_string) {
         return request->GetString(key, defvalue);
     }
 #endif
@@ -119,10 +137,14 @@ struct HV_EXPORT HttpContext {
     }
 
     void setHeader(const char* key, const std::string& value) {
-        response->headers[key] = value;
+        response->SetHeader(key, value);
         if (stricmp(key, "Content-Type") == 0) {
             setContentType(value.c_str());
         }
+    }
+
+    void setCookie(const HttpCookie& cookie) {
+        response->AddCookie(cookie);
     }
 
     void setBody(const std::string& body) {
@@ -131,7 +153,9 @@ struct HV_EXPORT HttpContext {
 
     // response->sendXxx
     int send() {
-        writer->End();
+        if (writer) {
+            writer->End();
+        }
         return response->status_code;
     }
 
@@ -172,6 +196,14 @@ struct HV_EXPORT HttpContext {
     }
 #endif
 
+    int redirect(const std::string& location, http_status status = HTTP_STATUS_FOUND) {
+        response->Redirect(location, status);
+        return send();
+    }
+
+    int close() {
+        return writer ? writer->close(true) : -1;
+    }
 };
 
 } // end namespace hv

@@ -18,34 +18,42 @@ namespace ZeroBot::Plugin
                 {
                     try
                     {
-                        string url = "https://saucenao.com";
+                        std::unique_ptr<hv::HttpClient> cli(new hv::HttpClient);
 
-                        httplib::SSLClient cli(url);
+                        hssl_ctx_opt_t *ssl_opt = new hssl_ctx_opt_t;
+                        ssl_opt->verify_peer = 0;
+                        ssl_opt->endpoint = HSSL_CLIENT;
+                        ssl_opt->ca_path = NULL;
+                        ssl_opt->ca_file = "../cert/ca.crt";
+                        ssl_opt->crt_file = "../cert/client.crt";
+                        ssl_opt->key_file = "../cert/client_rsa_private.pem";
+                        hssl_ctx_t ctx = hssl_ctx_new(ssl_opt);
+                        if(ctx == NULL)
+                        {
+                            std::cerr << "Error: ctx is null" << std::endl;
+                        }
+                        delete ssl_opt;
+                        auto ret = cli->setSslCtx(ctx);
+                        if (ret != 0)
+                        {
+                            std::cerr << "Error: Cert Error" << http_client_strerror(ret) << std::endl;
+                        }
 
-                        cli.set_ca_cert_path("../certs/ca.crt");
+                        HttpRequestPtr req(new HttpRequest);
+                        req->method = HTTP_POST;
+                        req->url = "https://saucenao.com";
+                        req->path = "/search.php?api_key=" + apiKey + "&dbmask=999&output_type=2&numres=3";
 
-                        std::clog << 1 << std::endl;
-                        httplib::Request req;
-                        req.params = { { "api_key"    , apiKey      },
-                                       { "dbmask"     , "999"       },
-                                       { "output_type", "2"         },
-                                       { "numres"     , "3"         },
-                                       { "url"        , msg.content } };
-                        req.method = "POST";
-                        req.path = "/search.php";
+                        HttpResponsePtr resp(new HttpResponse);
 
-                        httplib::Response resp;
-                        httplib::Error err;
+                        cli->send(req.get(), resp.get());
 
-                        std::clog << 2 << std::endl;
+                        std::cout << resp->status_code << std::endl;
+                        string str;
+                        resp->DumpHeaders(str);
+                        std::cout << str << std::endl;
 
-                        cli.send(req, resp, err);
-                        std::clog << 3 << std::endl;
-
-                        std::cout << to_string(err) << std::endl;
-                        std::cout << resp.body << std::endl;
-                        Transmitter::sendGroupMsg(msg.target_id, resp.body);
-                        std::clog << 4 << std::endl;
+                        Transmitter::sendGroupMsg(msg.target_id, nlohmann::to_string(resp->GetJson()));
                     }
                     catch (const std::exception& e)
                     {
@@ -59,5 +67,6 @@ namespace ZeroBot::Plugin
                 }
             }
         }
+        return true;
     }
 }

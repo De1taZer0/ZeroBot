@@ -8,5 +8,6 @@ namespace ZeroBot::Plugin
         {
             Transmitter::sendGroupMsg(msg.target_id, msg.content.substr(6,msg.content.length() - 6));
         }
+        return true;
     }
 }

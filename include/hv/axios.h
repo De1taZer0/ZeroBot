@@ -71,7 +71,7 @@ HV_INLINE Request newRequestFromJson(const json& jreq) {
     }
     // params
     if (jreq.contains("params")) {
-        req->query_params = jreq["params"].get<QueryParams>();
+        req->query_params = jreq["params"].get<hv::QueryParams>();
     }
     // headers
     if (jreq.contains("headers")) {
@@ -180,11 +180,11 @@ HV_INLINE Response Delete(const char* url, const char* req_str = nullptr) {
 // async
 HV_INLINE int axios(const json& jreq, ResponseCallback resp_cb) {
     auto req = newRequestFromJson(jreq);
-    return req ? requests::async(req, resp_cb) : -1;
+    return req ? requests::async(req, std::move(resp_cb)) : -1;
 }
 
 HV_INLINE int axios(const char* req_str, ResponseCallback resp_cb) {
-    return axios(json::parse(req_str), resp_cb);
+    return axios(json::parse(req_str), std::move(resp_cb));
 }
 
 }
