@@ -12,10 +12,12 @@ namespace ZeroBot::Plugin
 {
     using Transmit::Transmitter;
 
+    using Msg_Type = MessageExtra::Msg_Type;
+
     class PluginEcho : public PluginBase
     {
     public:
-        auto update(const EventBase& event) -> bool final;
+        auto update(const EventBase& msg) -> bool final;
     };
 }
 

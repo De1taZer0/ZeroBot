@@ -3,6 +3,8 @@
 #include "Transmitter.hh"
 #include "Plugin.hh"
 #include "plugin/Echo.hh"
+#include "plugin/Jrrp.hh"
+#include "plugin/Music.hh"
 #include "plugin/ImageSearch.hh"
 
 const std::string self_id = "2946684318";
@@ -22,6 +24,8 @@ int main()
     std::vector<std::unique_ptr<Plugin::PluginBase>> plugins;
 
     plugins.emplace_back(std::make_unique<Plugin::PluginEcho>());
+    plugins.emplace_back(std::make_unique<Plugin::PluginJrrp>());
+    plugins.emplace_back(std::make_unique<Plugin::PluginMusic>());
     plugins.emplace_back(std::make_unique<Plugin::PluginImageSearch>());
 
     bot.onEvent<Event::EventGroupMsg>([&plugins](const auto& msg)
@@ -35,14 +39,26 @@ int main()
         }
     });
 
-    bot.onEvent<Event::EventPersonMsg>([](const auto& msg)
+    bot.onEvent<Event::EventPersonMsg>([&plugins](const auto& msg)
     {
-        std::cout << "\\\\\\\\PersonMsg:" << msg.content;
+        if(msg.author_id != self_id)
+        {
+            for(auto& i : plugins)
+            {
+                i->update(msg);
+            }
+        }
     });
 
-    bot.onEvent<Event::EventBroadcastMsg>([](const auto& msg)
+    bot.onEvent<Event::EventBroadcastMsg>([&plugins](const auto& msg)
     {
-        std::cout << "\\\\\\\\BroadcastMsg:" << msg.content;
+        if(msg.author_id != self_id)
+        {
+            for(auto& i : plugins)
+            {
+                i->update(msg);
+            }
+        }
     });
 
     bot.run();

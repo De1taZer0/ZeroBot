@@ -239,6 +239,15 @@ namespace ZeroBot::MessageExtra
             rawMessage = std::make_unique<json>(rawMsg);
 
             type = rawMessage->at("type").get<string>();
+
+            if(type == "message_btn_click")
+            {
+                body.msg_id = rawMessage->at("body").at("msg_id").get<string>();
+                body.user_id = rawMessage->at("body").at("user_id").get<string>();
+                body.value = rawMessage->at("body").at("value").get<string>();
+                body.target_id = rawMessage->at("body").at("target_id").get<string>();
+            }
+
         }
         catch(const std::exception& e)
         {

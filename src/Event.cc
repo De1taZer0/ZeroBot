@@ -76,7 +76,7 @@ namespace ZeroBot::Event
             author_id = rawMessage->at("author_id").get<string>();
             content = rawMessage->at("content").get<string>();
             msg_id = rawMessage->at("msg_id").get<string>();
-            msg_timestamp = rawMessage->at("msg_timestamp").get<int>();
+            msg_timestamp = rawMessage->at("msg_timestamp").get<time_t>();
             nonce = rawMessage->at("nonce").get<string>();
 
             switch(type)
@@ -140,7 +140,7 @@ namespace ZeroBot::Event
             author_id = rawMessage->at("author_id").get<string>();
             content = rawMessage->at("content").get<string>();
             msg_id = rawMessage->at("msg_id").get<string>();
-            msg_timestamp = rawMessage->at("msg_timestamp").get<int>();
+            msg_timestamp = rawMessage->at("msg_timestamp").get<time_t>();
             nonce = rawMessage->at("nonce").get<string>();
 
             switch(type)
@@ -204,7 +204,7 @@ namespace ZeroBot::Event
             author_id = rawMessage->at("author_id").get<string>();
             content = rawMessage->at("content").get<string>();
             msg_id = rawMessage->at("msg_id").get<string>();
-            msg_timestamp = rawMessage->at("msg_timestamp").get<int>();
+            msg_timestamp = rawMessage->at("msg_timestamp").get<time_t>();
             nonce = rawMessage->at("nonce").get<string>();
 
             switch(type)

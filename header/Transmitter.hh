@@ -6,6 +6,8 @@
 /// @date 2023.7.20
 ///
 
+#include <codecvt>
+#include <locale>
 #include <hv/requests.h>
 #include <hv/json.hpp>
 #include "Setting.hh"

@@ -78,7 +78,7 @@ namespace ZeroBot::Event
         string author_id; ///< 发送者 id, 1 代表系统
         string content; ///< 消息内容, 文件，图片，视频时，content 为 url
         string msg_id; ///< 消息的 id
-        int msg_timestamp; ///< 消息发送时间的毫秒时间戳
+        time_t msg_timestamp; ///< 消息发送时间的毫秒时间戳
         string nonce; ///< 随机串，与用户消息发送 api 中传的 nonce 保持一致
         unique_ptr<MessageExtra::MessageExtraBase> extra; ///< 不同的消息类型，结构不一致
 

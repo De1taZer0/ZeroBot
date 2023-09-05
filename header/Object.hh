@@ -167,6 +167,162 @@ namespace ZeroBot::Object
 
         explicit KMarkdown(json&& rawMsg);
     };
+
+    namespace Card
+    {
+        struct TotalBase
+        {
+            string type;
+
+            TotalBase() = delete;
+
+            TotalBase(string type);
+
+            ~TotalBase() = default;
+        };
+
+        struct CardBase : public TotalBase
+        {
+            string theme;
+
+            string color;
+
+            string size;
+        };
+
+        struct ModuleBase : public TotalBase
+        {
+
+        };
+
+        struct ElementBase : public TotalBase
+        {
+
+        };
+
+        struct StructureBase : public TotalBase
+        {
+
+        };
+
+        struct Card final : public CardBase
+        {
+            array<ModuleBase*> modules;
+        };
+
+        namespace Module
+        {
+            struct Header : public ModuleBase
+            {
+                ElementBase* element;
+            };
+
+            struct Section : public ModuleBase
+            {
+                string mode;
+                ElementBase* text;
+
+            };
+
+            struct ImageGroup : public ModuleBase
+            {
+                array<ElementBase> elements;
+            };
+
+            struct Container : public ModuleBase
+            {
+                array<ElementBase> elements;
+            };
+
+            struct ActionGroup : public ModuleBase
+            {
+                array<ElementBase> elements;
+            };
+
+            struct Context : public ModuleBase
+            {
+                array<ElementBase> elements;
+            };
+
+            struct Divider : public ModuleBase
+            {
+
+            };
+
+            struct File : public ModuleBase
+            {
+                string src;
+                string title;
+                string cover;
+            };
+
+            struct Audio : public ModuleBase
+            {
+                string src;
+                string title;
+                string cover;
+            };
+
+            struct Video : public ModuleBase
+            {
+                string src;
+                string title;
+                string cover;
+            };
+
+            struct Countdown : public ModuleBase
+            {
+                time_t endTime;
+                time_t startTime;
+                string mode;
+            };
+
+            struct Invite : public ModuleBase
+            {
+                string code;
+            };
+        }
+
+        namespace Element
+        {
+            struct PlainText : public ElementBase
+            {
+                string content;
+                bool emoji;
+            };
+
+            struct KMarkDown : public ElementBase
+            {
+                string content;
+            };
+
+            struct Image : public ElementBase
+            {
+                string src;
+                string alt;
+                string size;
+                bool circle;
+            };
+
+            struct Button : public ElementBase
+            {
+                string theme;
+                string value;
+                string click;
+                string text;
+            };
+        }
+
+        namespace Structure
+        {
+            struct Paragraph
+            {
+                uint64_t cols;
+
+                array<ElementBase*> fields;
+            };
+        }
+    }
 }
 
 #endif //ZEROBOT_OBJECT_HH

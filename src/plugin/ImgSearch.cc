@@ -1,64 +1,91 @@
 #include "plugin/ImageSearch.hh"
 
+inline std::string to_utf8(std::wstring& wide_string)
+{
+    static std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_conv;
+    return utf8_conv.to_bytes(wide_string);
+}
+
 namespace ZeroBot::Plugin
 {
-    std::unordered_map<std::string, bool> PluginImageSearch::imageSearchSign;
-
     auto PluginImageSearch::update(const EventBase& msg) -> bool
     {
-        if(msg.content.find("/search") == 0)
+        if(msg.getType().mType != Msg_Type::SYSTEM && msg.content.find("/search") == 0)
         {
             imageSearchSign[msg.author_id] = true;
         }
-        if(imageSearchSign.contains(msg.author_id))
+        if(msg.getType().mType != Msg_Type::SYSTEM && imageSearchSign.contains(msg.author_id))
         {
             if(imageSearchSign.at(msg.author_id))
             {
                 if(msg.content.find("https") != string::npos)
                 {
-                    try
+                    std::thread thr([](const string& imgUrl, const string& targetID)
                     {
-                        std::unique_ptr<hv::HttpClient> cli(new hv::HttpClient);
-
-                        hssl_ctx_opt_t *ssl_opt = new hssl_ctx_opt_t;
-                        ssl_opt->verify_peer = 0;
-                        ssl_opt->endpoint = HSSL_CLIENT;
-                        ssl_opt->ca_path = NULL;
-                        ssl_opt->ca_file = "../cert/ca.crt";
-                        ssl_opt->crt_file = "../cert/client.crt";
-                        ssl_opt->key_file = "../cert/client_rsa_private.pem";
-                        hssl_ctx_t ctx = hssl_ctx_new(ssl_opt);
-                        if(ctx == NULL)
+                        try
                         {
-                            std::cerr << "Error: ctx is null" << std::endl;
+                            string command = "python ..\\addons\\searchImage.py --url=" + imgUrl;
+
+                            FILE* fp = NULL;
+                            wchar_t result[16384];
+                            if((fp = _popen(command.c_str(), "r")) != NULL)
+                            {
+                                fgetws(result, 16384, fp);
+                                _pclose(fp);
+                                fp = NULL;
+                            }
+
+                            std::wstring wRes(result);
+                            json resp = json::parse(to_utf8(wRes));
+
+                            json resMsg = json::array();
+                            resMsg[0]["type"] = "card";
+                            resMsg[0]["theme"] = "secondary";
+                            resMsg[0]["size"] = "lg";
+                            resMsg[0]["modules"] = json::array();
+                            resMsg[0]["modules"][0]["type"] = "section";
+                            resMsg[0]["modules"][0]["text"]["type"] = "kmarkdown";
+                            resMsg[0]["modules"][0]["text"]["content"] = "**找到以下结果(top 6):**";
+                            for(int i = 0; i < 6; ++i)
+                            {
+                                int j = i * 2 + 1;
+                                resMsg[0]["modules"][j]["type"] = "section";
+                                resMsg[0]["modules"][j]["text"]["type"] = "kmarkdown";
+                                resMsg[0]["modules"][j]["text"]["content"] = "---";
+
+                                int k = i * 2 + 2;
+                                resMsg[0]["modules"][k]["type"] = "section";
+                                resMsg[0]["modules"][k]["text"]["type"] = "kmarkdown";
+                                if(resp[i].contains("url"))
+                                {
+                                    resMsg[0]["modules"][k]["text"]["content"] = \
+                                    "**标题: " + resp[i]["title"].get<string>() + "**\n" + \
+                                    "**相似度: " + resp[i]["similarity"].get<string>() + "**\n" + \
+                                    "**来自: " + resp[i]["index_name"].get<string>() + "**\n" + \
+                                    "[点击跳转](" + resp[i]["url"].get<string>() + ")";
+                                }
+                                else
+                                {
+                                    resMsg[0]["modules"][k]["text"]["content"] = \
+                                    "**标题: " + resp[i]["title"].get<string>() + "**\n" + \
+                                    "**相似度: " + resp[i]["similarity"].get<string>() + "**\n" + \
+                                    "**来自: " + resp[i]["index_name"].get<string>() + "**\n";
+                                }
+                                resMsg[0]["modules"][k]["mode"] = "right";
+                                resMsg[0]["modules"][k]["accessory"]["type"] = "image";
+                                resMsg[0]["modules"][k]["accessory"]["src"] = resp[i]["thumbnail"].get<string>();
+                                resMsg[0]["modules"][k]["accessory"]["size"] = "lg";
+                            }
+                            Transmitter::sendGroupMsg(targetID, nlohmann::to_string(resMsg), std::optional(10));
                         }
-                        delete ssl_opt;
-                        auto ret = cli->setSslCtx(ctx);
-                        if (ret != 0)
+                        catch (const std::exception& e)
                         {
-                            std::cerr << "Error: Cert Error" << http_client_strerror(ret) << std::endl;
+                            std::cerr << e.what() << '\n';
                         }
+                    }, msg.content, msg.target_id);
 
-                        HttpRequestPtr req(new HttpRequest);
-                        req->method = HTTP_POST;
-                        req->url = "https://saucenao.com";
-                        req->path = "/search.php?api_key=" + apiKey + "&dbmask=999&output_type=2&numres=3";
+                    thr.detach();
 
-                        HttpResponsePtr resp(new HttpResponse);
-
-                        cli->send(req.get(), resp.get());
-
-                        std::cout << resp->status_code << std::endl;
-                        string str;
-                        resp->DumpHeaders(str);
-                        std::cout << str << std::endl;
-
-                        Transmitter::sendGroupMsg(msg.target_id, nlohmann::to_string(resp->GetJson()));
-                    }
-                    catch (const std::exception& e)
-                    {
-                        std::cerr << e.what() << '\n';
-                    }
                     imageSearchSign.at(msg.author_id) = false;
                 }
                 else

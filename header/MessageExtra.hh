@@ -177,6 +177,15 @@ namespace ZeroBot::MessageExtra
     public:
         string type;
 
+        struct
+        {
+            string msg_id;
+            string user_id;
+            string value;
+            string target_id;
+        }body;
+
+
         SystemMsg() = delete;
 
         explicit SystemMsg(json&& rawMsg);

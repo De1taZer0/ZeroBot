@@ -47,8 +47,8 @@ namespace ZeroBot::Transmit
         req->method = HTTP_POST;
         req->headers["Authorization"] = authorization;
         req->url = "https://www.kookapp.cn/api/v3/message/create";
-        req->json = { { "target_id"     , target_id      },
-                      { "content"       , content        } };
+        req->json = { { "target_id"     , target_id },
+                      { "content"       , content   } };
 
         if(type.has_value())
         {

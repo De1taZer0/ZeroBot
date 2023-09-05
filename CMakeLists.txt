@@ -21,5 +21,7 @@ link_directories(lib)
 file(GLOB_RECURSE SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/*.cc")
 
 add_executable(${PROJECT_NAME} main/main.cc ${SOURCE_FILES})
+add_executable(TEST main/test.cc ${SOURCE_FILES})
 
 target_link_libraries(${PROJECT_NAME} hv_static libssl-1_1 libcrypto-1_1)
+target_link_libraries(TEST hv_static libssl-1_1 libcrypto-1_1)
